@@ -1,0 +1,11 @@
+node_modules/
+**/bin/
+**/obj/
+.openai/
+.env
+.env.*
+!.env.example
+**/secrets.json
+**/appsettings.*.local.json
+.DS_Store
+*.zip

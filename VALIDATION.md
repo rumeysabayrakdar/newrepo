@@ -1,15 +1,22 @@
-# Validation
+# Validation — shared PostgreSQL Test package
 
-## Current update
+## Passed
 
-The in-app login page, Explore demo entry, IT setup panel, app sign-out button and frontend Okta flow have been removed. The catalogue renders immediately. Hosting-managed Okta configuration has not been accessed or independently verified.
+- Frontend compilation and the full existing catalogue/admin, profile matrix and auth-gate UI suites.
+- Shared-mode DOM checks: server state, known Test-profile switching, server-derived admin state, no localStorage overwrite.
+- C# PostgreSQL backend compiled in the .NET 10 Alpine container with Npgsql 10.0.3; optional build CA secret used only in the build stage.
+- Real PostgreSQL 17 Compose stack: private database service, generated secret file, persistent volumes, automatic schema/seed and startup health ordering.
+- API checks across separate employee clients: country/type/manager filtering; employee denial of admin writes; create/edit/archive/restore; category operations; translations; admin grants/revocations and last-admin protection; revision conflict; safe links and ineligible direct-link denial.
+- Repeated searches, opens and admin changes each get separate UUID records. SQL triggers rejected UPDATE, DELETE and TRUNCATE attempts against event history.
+- App restart retained saved apps, translations and all event IDs. Initialization did not overwrite stored data.
+- Live two-browser-DOM workflow: one browser's save appeared in another; a stale open editor was rejected while preserving its draft and the newer database value.
+- Wrong expected Test database name and Production startup were blocked before Test seeding.
+- ZIP required files and integrity verified; database contents/actual secrets and intermediate tools excluded.
 
-Frontend build and interaction checks cover direct entry without login/setup controls plus the existing tabs, targeting, persona switching, repeat activity records, details, private preview, create/edit/save, country selector, archive/restore, admin grants and content screens.
-
-## Previous package checks
-
-The included Dockerfile and .NET 10 Alpine static host previously built and ran successfully. Non-root runtime, static content, health endpoint, explicit demo opt-in and Production startup rejection passed. This update changes frontend files and documentation; host behavior is unchanged.
+Tests are in tests/postgres-integration.py, tests/postgres-ui.cjs, tests/database-guards.py and the npm test suite. They use isolated synthetic Compose services, not Norm's project or real employee data.
 
 ## Limits
 
-Visual/mobile browser checks and hosting-managed Okta sign-in have not been verified. The frontend does not receive trusted employee identity/roles from Norm. Data and synthetic permissions remain browser-local. Shared backend APIs, secure authorization and immutable transactional audit records remain pending.
+Norm's ZIP/GitHub importer has not been verified to run compose.yaml or provision its services. This ZIP cannot grant the importing platform infrastructure permissions. Dockerfile-only hosting requires a separately configured PostgreSQL database.
+
+The published Codex static preview remains browser-local. Shared PostgreSQL mode runs from the .NET package on a suitable host. Database schema v1 uses one revisioned JSONB catalogue/reference/admin document plus separate append-only log tables, rather than normalized per-entity tables. Database owners can change trigger protections. Production, real gateway attributes/admin bootstrap, backups/retention and full visual/mobile QA remain pending.

@@ -1,0 +1,55 @@
+name: arcelik-appstore-test
+services:
+  initialize-secret:
+    image: alpine:3.22
+    restart: "no"
+    volumes:
+      - test-secrets:/secrets
+    command:
+      - sh
+      - -ec
+      - |
+        umask 077
+        if [ ! -s /secrets/postgres-password ]; then
+          head -c 48 /dev/urandom | base64 | tr -d '\n' > /secrets/postgres-password
+        fi
+        chown 1654:1654 /secrets/postgres-password
+        chmod 0400 /secrets/postgres-password
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    depends_on:
+      initialize-secret:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_DB: arcelik_appstore_test
+      POSTGRES_USER: appstore_test
+      POSTGRES_PASSWORD_FILE: /run/appstore-secrets/postgres-password
+    volumes:
+      - test-postgres:/var/lib/postgresql/data
+      - test-secrets:/run/appstore-secrets:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appstore_test -d arcelik_appstore_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Test
+      DOTNET_ENVIRONMENT: Test
+      Database__Enabled: "true"
+      Database__PasswordFile: /run/appstore-secrets/postgres-password
+      ConnectionStrings__AppStore: Host=postgres;Port=5432;Database=arcelik_appstore_test;Username=appstore_test
+      TestDatabase__Name: arcelik_appstore_test
+    volumes:
+      - test-secrets:/run/appstore-secrets:ro
+volumes:
+  test-postgres:
+  test-secrets:

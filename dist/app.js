@@ -3,32 +3,68 @@ const {
   useEffect
 } = React;
 const uid = () => crypto.randomUUID();
-const baseCats = ['Productivity', 'Communication', 'Human resources', 'Business tools', 'Lifestyle'];
-const countries = ['Türkiye', 'United Kingdom', 'Romania', 'Germany', 'South Africa', 'Pakistan'];
-const types = ['Office', 'Field'];
+const baseCats = ['Productivity', 'Communication', 'Human resources', 'Business tools', 'Lifestyle', 'Test scenarios'];
+const countries = ['Türkiye', 'Spain', 'United Kingdom', 'Romania', 'Germany', 'South Africa', 'Pakistan'];
+const types = ['White-collar', 'Blue-collar'];
 const platforms = ['Web', 'iOS', 'Android', 'Windows'];
 const personas = [{
   id: 'rumeysa',
   name: 'Rümeysa',
-  label: 'Rümeysa · Employee',
   country: 'Türkiye',
-  type: 'Office',
-  initials: 'RK'
+  type: 'White-collar',
+  isManager: false,
+  initials: 'RB'
+}, {
+  id: 'emre',
+  name: 'Emre',
+  country: 'Türkiye',
+  type: 'Blue-collar',
+  isManager: false,
+  initials: 'EY'
+}, {
+  id: 'lucia',
+  name: 'Lucía',
+  country: 'Spain',
+  type: 'White-collar',
+  isManager: false,
+  initials: 'LG'
+}, {
+  id: 'diego',
+  name: 'Diego',
+  country: 'Spain',
+  type: 'Blue-collar',
+  isManager: false,
+  initials: 'DM'
+}, {
+  id: 'elif',
+  name: 'Elif',
+  country: 'Türkiye',
+  type: 'White-collar',
+  isManager: true,
+  initials: 'EK'
+}, {
+  id: 'carlos',
+  name: 'Carlos',
+  country: 'Spain',
+  type: 'White-collar',
+  isManager: true,
+  initials: 'CR'
 }, {
   id: 'zeynep',
   name: 'Zeynep',
-  label: 'Zeynep · Admin',
   country: 'Türkiye',
-  type: 'Office',
+  type: 'White-collar',
+  isManager: false,
   initials: 'ZA'
 }, {
   id: 'alex',
   name: 'Alex',
-  label: 'Alex · UK employee',
   country: 'United Kingdom',
-  type: 'Field',
+  type: 'Blue-collar',
+  isManager: false,
   initials: 'AT'
 }];
+const profileLabel = p => `${p.name} · ${p.country} · ${p.type}${p.isManager ? ' · Manager' : ''}`;
 const mk = (id, name, description, category, symbol, color, bg, tab = 'arcelik', extra = {}) => ({
   id,
   name,
@@ -41,7 +77,7 @@ const mk = (id, name, description, category, symbol, color, bg, tab = 'arcelik',
   tab,
   version: '1.0.0',
   countries: [],
-  employeeTypes: ['Office', 'Field'],
+  employeeTypes: ['White-collar', 'Blue-collar'],
   platforms: ['Web'],
   links: [{
     id: uid(),
@@ -60,8 +96,110 @@ const mk = (id, name, description, category, symbol, color, bg, tab = 'arcelik',
   isArchived: false,
   ...extra
 });
-const seeds = [mk('connect', 'Arçelik Connect', 'Your people, news and workplace. All in one place.', 'Communication', 'a', '#fff', '#c92d3a'), mk('hr', 'HR Portal', 'Everything you need for your employee journey.', 'Human resources', 'HR', '#ad6b32', '#fbf0e1'), mk('one', 'One Arçelik', 'Stay connected to our global Arçelik community.', 'Communication', '◎', '#417c73', '#e6f3ef'), mk('expense', 'Expense Manager', 'Less paperwork. Simpler expense management.', 'Business tools', '↗', '#4b6aa4', '#eaf0fc'), mk('learn', 'Learning Hub', 'Make room for growth. Learn something new.', 'Productivity', '▱', '#8563ad', '#f1ebfa'), mk('service', 'Service Partner', 'The right tools for our teams in the field.', 'Business tools', '⚒', '#457b89', '#e7f2f5', 'arcelik', {
-  employeeTypes: ['Field']
+const importedApps = [{
+  id: 'perakende-akademi',
+  name: 'Perakende Akademi',
+  version: '2.2.2',
+  platforms: ['iOS'],
+  symbol: 'PA',
+  color: '#f6f8ed',
+  bg: '#686e70',
+  tab: 'arcelik',
+  categories: ['Productivity'],
+  description: 'Perakende Akademi mobil uygulaması sadece Arçelik Pazarlama A.Ş. bayilerinin ve saha ekiplerinin kullanabildiği kapalı devre bir uygulamadır.'
+}, {
+  id: 'servis-akademi',
+  name: 'Servis Akademi',
+  version: '1.0.2',
+  platforms: ['iOS'],
+  symbol: 'SA',
+  color: '#ed950d',
+  bg: '#f5f6f7',
+  tab: 'arcelik',
+  categories: ['Productivity'],
+  description: 'Servis Akademi mobil uygulaması sadece Arçelik Pazarlama A.Ş. Yetkili Servislerinin ve çalışanlarının kullanabildiği kapalı devre bir uygulamadır.'
+}, {
+  id: 'perakende-akademi-ar',
+  name: 'Perakende Akademi (AR)',
+  version: '1.0.0',
+  platforms: ['iOS'],
+  symbol: 'AR',
+  color: '#ffffff',
+  bg: '#ff9d13',
+  tab: 'arcelik',
+  categories: ['Productivity'],
+  description: 'Perakende Akademisi Augmented Reality Uygulaması (Test).'
+}, {
+  id: 'okta-verify-china',
+  name: 'Okta Verify (for China)',
+  version: '6.1.1',
+  platforms: ['Android'],
+  symbol: '✓',
+  color: '#ffffff',
+  bg: '#139acc',
+  tab: 'other',
+  categories: ['Business tools'],
+  description: 'Okta Verify App for Arçelik Global users in China.'
+}, {
+  id: 'bizpuan',
+  name: 'BizPuan',
+  version: '2.7',
+  platforms: ['iOS', 'Android'],
+  symbol: '●',
+  color: '#078bc3',
+  bg: '#ffffff',
+  tab: 'arcelik',
+  categories: ['Business tools'],
+  description: 'Bayi ve Servis çalışanlarının çeşitli kurgular ile puan kazanmalarını ve bu puanları harcamalarını sağlayan sadakat uygulamasıdır.'
+}, {
+  id: 'sirius-tech',
+  name: 'SiriusTech',
+  version: '1.0.2',
+  platforms: ['Android'],
+  symbol: '✦',
+  color: '#bfe8ff',
+  bg: '#082d57',
+  tab: 'arcelik',
+  categories: ['Business tools'],
+  description: 'Sirius Tech Application.'
+}].map(a => ({
+  ...a,
+  shortDescription: a.description,
+  countries: [],
+  employeeTypes: ['White-collar', 'Blue-collar'],
+  links: a.platforms.map(p => ({
+    id: a.id + '-' + p.toLowerCase(),
+    label: a.name + ' for ' + p,
+    platform: p,
+    country: '',
+    version: a.version,
+    url: '',
+    pending: true
+  })),
+  documents: [],
+  images: [],
+  isActive: true,
+  isArchived: false,
+  source: 'legacy-catalogue-screenshot'
+}));
+const scenarioApps = [['test-tr-white', 'Türkiye Office Tools', ['Türkiye'], ['White-collar'], false], ['test-tr-blue', 'Türkiye Team Tools', ['Türkiye'], ['Blue-collar'], false], ['test-es-white', 'Spain Office Tools', ['Spain'], ['White-collar'], false], ['test-es-blue', 'Spain Team Tools', ['Spain'], ['Blue-collar'], false], ['test-managers', 'Manager Workspace', [], ['White-collar', 'Blue-collar'], true], ['test-tr-es', 'Türkiye & Spain Hub', ['Türkiye', 'Spain'], ['White-collar', 'Blue-collar'], false]].map(([id, name, countries, employeeTypes, managerOnly]) => mk(id, name, 'Synthetic test application to verify country, employee type and manager targeting.', 'Test scenarios', managerOnly ? 'M' : 'T', '#526996', '#eaf0fc', 'arcelik', {
+  countries,
+  employeeTypes,
+  managerOnly,
+  isTestScenario: true,
+  images: [],
+  documents: [],
+  links: [{
+    id: id + '-web',
+    label: 'Test application · destination not configured',
+    platform: 'Web',
+    country: '',
+    url: '',
+    pending: true
+  }]
+}));
+const seeds = [...importedApps, ...scenarioApps, mk('connect', 'Arçelik Connect', 'Your people, news and workplace. All in one place.', 'Communication', 'a', '#fff', '#c92d3a'), mk('hr', 'HR Portal', 'Everything you need for your employee journey.', 'Human resources', 'HR', '#ad6b32', '#fbf0e1'), mk('one', 'One Arçelik', 'Stay connected to our global Arçelik community.', 'Communication', '◎', '#417c73', '#e6f3ef'), mk('expense', 'Expense Manager', 'Less paperwork. Simpler expense management.', 'Business tools', '↗', '#4b6aa4', '#eaf0fc'), mk('learn', 'Learning Hub', 'Make room for growth. Learn something new.', 'Productivity', '▱', '#8563ad', '#f1ebfa'), mk('service', 'Service Partner', 'The right tools for our teams in the field.', 'Business tools', '⚒', '#457b89', '#e7f2f5', 'arcelik', {
+  employeeTypes: ['Blue-collar']
 }), mk('well', 'Wellbeing', 'Small steps towards a healthier workday.', 'Lifestyle', '♡', '#a06372', '#fbeef1'), mk('teams', 'Microsoft Teams', 'Meet, chat and collaborate with your team.', 'Communication', 'T', '#fff', '#6554a4', 'other', {
   links: [{
     id: uid(),
@@ -121,16 +259,35 @@ const initial = () => ({
     }
   }
 });
+function migrateCatalogue(v) {
+  const ids = new Set(v.apps.map(a => a.id));
+  let apps = v.apps.map(a => ({
+    ...a,
+    employeeTypes: (a.employeeTypes || []).map(t => t === 'Office' ? 'White-collar' : t === 'Field' ? 'Blue-collar' : t)
+  }));
+  if (!v.migrations?.legacyAppsV1) apps = [...apps, ...importedApps.filter(a => !ids.has(a.id))];
+  if (!v.migrations?.testProfilesV1) apps = [...apps, ...scenarioApps.filter(a => !ids.has(a.id))];
+  return {
+    ...v,
+    apps,
+    categories: [...new Set([...(v.categories || baseCats), 'Test scenarios'])],
+    migrations: {
+      ...v.migrations,
+      legacyAppsV1: true,
+      testProfilesV1: true
+    }
+  };
+}
 function read() {
   try {
     const v = JSON.parse(localStorage.getItem('arcelik-mvp-v1'));
-    return v && Array.isArray(v.apps) && Array.isArray(v.events) ? v : initial();
+    return v && Array.isArray(v.apps) && Array.isArray(v.events) ? migrateCatalogue(v) : initial();
   } catch {
     return initial();
   }
 }
 function eligible(a, p) {
-  return a.isActive && !a.isArchived && (!a.countries.length || a.countries.includes(p.country)) && a.employeeTypes.includes(p.type);
+  return a.isActive && !a.isArchived && (!a.countries.length || a.countries.includes(p.country)) && a.employeeTypes.includes(p.type) && (!a.managerOnly || p.isManager === true);
 }
 function validUrl(url) {
   try {
@@ -142,6 +299,32 @@ function validUrl(url) {
 function AppIcon({
   app
 }) {
+  if (app.id === 'bizpuan') return React.createElement("div", {
+    className: "icon",
+    style: {
+      background: 'white'
+    }
+  }, React.createElement("svg", {
+    "aria-hidden": "true",
+    viewBox: "0 0 64 64",
+    width: "47",
+    height: "47"
+  }, React.createElement("circle", {
+    cx: "44",
+    cy: "13",
+    r: "11",
+    fill: "#f9a62b"
+  }), React.createElement("circle", {
+    cx: "16",
+    cy: "30",
+    r: "14",
+    fill: "#008ac5"
+  }), React.createElement("circle", {
+    cx: "43",
+    cy: "50",
+    r: "14",
+    fill: "#d20e32"
+  })));
   return React.createElement("div", {
     className: "icon",
     style: {
@@ -232,14 +415,16 @@ function Detail({
     className: "close",
     onClick: onClose,
     "aria-label": "Close application details"
-  }, "\xD7")), React.createElement("p", null, a.shortDescription), React.createElement("h3", null, "Get the application"), (preview ? a.links : links).map((l, i) => React.createElement("div", {
+  }, "\xD7")), React.createElement("p", null, a.shortDescription), a.managerOnly && React.createElement("p", {
+    className: "info"
+  }, "Managers only"), React.createElement("h3", null, "Get the application"), (preview ? a.links : links).map((l, i) => React.createElement("div", {
     className: "linkrow",
     key: l.id || i
-  }, React.createElement("div", null, React.createElement("b", null, l.label || 'Application link'), React.createElement("small", null, l.platform || 'Web', l.country ? ' · ' + l.country : '')), React.createElement("button", {
-    disabled: preview,
+  }, React.createElement("div", null, React.createElement("b", null, l.label || 'Application link'), React.createElement("small", null, l.platform || 'Web', l.country ? ' · ' + l.country : '', l.version ? ' · v' + l.version : '', l.pending ? ' · Download address pending' : '')), React.createElement("button", {
+    disabled: preview || l.pending || !l.url && !l.openPath,
     className: "btn primary",
     onClick: () => onOpen(a, l)
-  }, l.platform === 'Web' ? 'Open app' : 'Get app', " \u2197"))), !links.length && !preview && React.createElement("p", {
+  }, l.pending ? 'Coming soon' : l.platform === 'Web' ? 'Open app' : 'Get app', " \u2197"))), !links.length && !preview && React.createElement("p", {
     className: "info"
   }, "No links are available for your country."), React.createElement("h3", null, "About this application"), React.createElement("p", null, a.description), a.images.length > 0 && React.createElement(React.Fragment, null, React.createElement("h3", null, "A closer look"), a.images.map((url, i) => React.createElement("img", {
     className: "screen",
@@ -278,13 +463,16 @@ function Editor({
   }));
   const item = (type, i, k, v) => update(type, a[type].map((x, j) => i === j ? {
     ...x,
-    [k]: v
+    [k]: v,
+    ...(type === 'links' && k === 'url' ? {
+      pending: !v.trim()
+    } : {})
   } : x));
   function save(e) {
     e.preventDefault();
     if (!a.name.trim() || !a.shortDescription.trim() || !a.description.trim() || !a.version.trim()) return E('Please fill in the name, summary, description and version.');
     if (!a.categories.length || !a.employeeTypes.length || !a.platforms.length) return E('Select at least one category, employee type and platform.');
-    if (!a.links.length || a.links.some(l => !l.label.trim() || !validUrl(l.url))) return E('Add at least one labelled application link with a valid https:// address.');
+    if (!a.links.length || a.links.some(l => !l.label.trim() || !l.pending && !validUrl(l.url) || l.url && !validUrl(l.url))) return E('Add labelled HTTPS links, or mark unavailable addresses as pending.');
     if (a.documents.some(d => !d.title.trim() || !(validUrl(d.url) || d.url === 'guide.html'))) return E('Each document needs a title and an HTTPS address.');
     if (a.images.some(u => u !== 'sample-screen.svg' && !validUrl(u))) return E('Screenshot addresses must begin with https://.');
     onSave({
@@ -386,7 +574,13 @@ function Editor({
     values: a.employeeTypes,
     onChange: v => update('employeeTypes', v),
     options: types
-  }), React.createElement(Multi, {
+  }), React.createElement("label", {
+    className: "flex info"
+  }, React.createElement("input", {
+    type: "checkbox",
+    checked: !!a.managerOnly,
+    onChange: e => update('managerOnly', e.target.checked)
+  }), " Managers only (employee attribute, not an admin role)"), React.createElement(Multi, {
     title: "Platforms",
     values: a.platforms,
     onChange: v => update('platforms', v),
@@ -408,6 +602,12 @@ function Editor({
     value: l.label,
     onChange: e => item('links', i, 'label', e.target.value)
   })), React.createElement("label", {
+    className: "flex info"
+  }, React.createElement("input", {
+    type: "checkbox",
+    checked: !!l.pending,
+    onChange: e => item('links', i, 'pending', e.target.checked)
+  }), " Download address pending"), React.createElement("label", {
     className: "field"
   }, "HTTPS address", React.createElement("input", {
     placeholder: "https://\u2026",
@@ -520,10 +720,15 @@ function Editor({
 }
 function CatalogueApp({
   companyUser,
-  onSignOut
+  onSignOut,
+  serverData,
+  sharedState,
+  sharedPersona,
+  onPersonaChange,
+  onDatabaseChange
 }) {
-  const [data, D] = useState(read),
-    [personId, P] = useState('rumeysa'),
+  const [data, D] = useState(() => serverData || read()),
+    [localPersonId, LocalP] = useState('rumeysa'),
     [page, Page] = useState('catalogue'),
     [lang, L] = useState('en'),
     [tab, T] = useState('arcelik'),
@@ -531,7 +736,7 @@ function CatalogueApp({
     [query, SQ] = useState(''),
     [cat, C] = useState('All apps'),
     [selected, S] = useState(null),
-    [editing, Edit] = useState(null),
+    [editing, SetEditing] = useState(null),
     [adminTab, AT] = useState('Applications'),
     [toast, Toast] = useState(''),
     [storageError, SE] = useState(false),
@@ -539,13 +744,16 @@ function CatalogueApp({
     [newCat, NC] = useState(''),
     [translationKey, TK] = useState('heading'),
     [translationValue, TV] = useState('');
-  const person = companyUser || personas.find(p => p.id === personId),
+  const personId = sharedPersona || localPersonId,
+    P = onPersonaChange || LocalP;
+  const person = sharedState?.profile || companyUser || personas.find(p => p.id === personId),
     isAdmin = !companyUser && data.admins.includes(personId),
     t = {
       ...data.translations.en,
       ...data.translations[lang]
     };
   useEffect(() => {
+    if (companyUser || sharedState) return;
     try {
       localStorage.setItem('arcelik-mvp-v1', JSON.stringify(data));
       SE(false);
@@ -565,6 +773,13 @@ function CatalogueApp({
   useEffect(() => {
     if (!isAdmin && page === 'admin') Page('catalogue');
   }, [isAdmin, page]);
+  useEffect(() => {
+    if (sharedState) D(sharedState);
+  }, [sharedState]);
+  const Edit = value => SetEditing(value && sharedState ? {
+    ...value,
+    _baseRevision: data._revision
+  } : value);
   const event = (action, entity, extra = {}) => ({
     id: uid(),
     actor: person.name,
@@ -575,8 +790,25 @@ function CatalogueApp({
     correlationId: uid(),
     ...extra
   });
-  function audit(action, entity, patch, before = null, after = null) {
+  function audit(action, entity, patch, before = null, after = null, requestedRevision = null) {
     if (!isAdmin) return Toast('Admin access is required.');
+    if (sharedState) {
+      Toast('Saving to the shared Test database…');
+      return onDatabaseChange({
+        action,
+        entity,
+        patch,
+        before,
+        after,
+        revision: requestedRevision ?? data._revision
+      }).then(() => {
+        Toast('Saved to the shared Test database.');
+        return true;
+      }).catch(e => {
+        Toast(e.message);
+        return false;
+      });
+    }
     const ev = event(action, entity, {
       kind: 'admin',
       before,
@@ -590,6 +822,40 @@ function CatalogueApp({
   }
   function search(e) {
     e.preventDefault();
+    if (sharedState) {
+      fetch('/api/test/events/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Test-Persona': person.id
+        },
+        body: JSON.stringify({
+          term: q
+        })
+      }).then(r => {
+        if (!r.ok) throw Error();
+        SQ(q);
+        S(null);
+      }).catch(() => Toast('The search could not be saved. Please try again.'));
+      return;
+    }
+    if (companyUser) {
+      fetch('/api/events/search', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          term: q
+        })
+      }).then(r => {
+        if (!r.ok) throw Error();
+        SQ(q);
+        S(null);
+      }).catch(() => Toast('Search could not be recorded. Please refresh or contact support.'));
+      return;
+    }
     SQ(q);
     S(null);
     D(d => ({
@@ -601,6 +867,19 @@ function CatalogueApp({
     }));
   }
   function open(a, l, doc = false) {
+    if (sharedState) {
+      if (l.pending || !l.openPath) return Toast('The download address has not been added yet.');
+      if (!l.openPath.startsWith('/api/test/open/')) return Toast('This link is unavailable.');
+      window.open(l.openPath, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (companyUser) {
+      if (l.pending || !l.openPath) return Toast('The download address has not been added yet.');
+      if (!l.openPath.startsWith('/api/apps/')) return Toast('This link is unavailable.');
+      window.open(l.openPath, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (l.pending || !l.url) return Toast('The download address has not been added yet.');
     if (!eligible(a, person) || l.country && l.country !== person.country) return Toast('This application is not available for your profile.');
     if (!(validUrl(l.url) || doc && l.url === 'guide.html')) return Toast('This link is unavailable. Please contact an administrator.');
     const ev = event(doc ? 'Document opened' : 'Application opened', a.name, {
@@ -623,16 +902,21 @@ function CatalogueApp({
       Toast('Unable to save activity. The link was not opened.');
     }
   }
-  function save(a) {
+  async function save(a) {
     if (!isAdmin) return;
+    const {
+      _baseRevision,
+      ...clean
+    } = a;
     const old = data.apps.find(x => x.id === a.id),
       next = {
-        ...a,
+        ...clean,
         id: a.id || uid()
       };
-    audit(old ? 'Application edited' : 'Application created', next.name, {
+    const result = audit(old ? 'Application edited' : 'Application created', next.name, {
       apps: old ? data.apps.map(x => x.id === a.id ? next : x) : [...data.apps, next]
-    }, old, next);
+    }, old, next, _baseRevision);
+    if (sharedState && !(await result)) return;
     Edit(null);
     Toast('Application saved. Eligible employees can see it now.');
   }
@@ -706,12 +990,31 @@ function CatalogueApp({
     className: "signedinname"
   }, person.name))), React.createElement("div", {
     className: "demo"
-  }, React.createElement("b", null, companyUser ? 'OKTA SIGNED IN · TEST CATALOGUE' : 'DEMO SESSION'), React.createElement("span", null, "Sample apps \xB7 Changes saved in this browser only \xB7 ", person.country, " / ", person.type)), storageError && React.createElement("div", {
+  }, React.createElement("b", null, companyUser ? 'VERIFIED EMPLOYEE · PILOT' : sharedState ? 'SHARED TEST DATABASE' : 'TEST ENVIRONMENT'), React.createElement("span", null, companyUser ? 'Profile supplied by your company · ' : sharedState ? 'Changes are shared across Test users · ' : 'Sample apps · Changes saved in this browser only · ', person.country, " / ", person.type, person.isManager ? ' / Manager' : '')), storageError && React.createElement("div", {
     role: "alert",
     className: "error"
   }, "Browser storage is full or unavailable. Your latest changes are not saved."), React.createElement("main", {
     className: "main"
-  }, page === 'catalogue' && React.createElement(React.Fragment, null, React.createElement("section", {
+  }, !companyUser && React.createElement("section", {
+    className: "test-profile-bar"
+  }, React.createElement("div", null, React.createElement("b", null, "Test employee"), React.createElement("p", null, "Switch profiles to check which applications each employee can see.")), React.createElement("label", null, React.createElement("span", {
+    className: "sr-only"
+  }, "Test employee profile"), React.createElement("select", {
+    "aria-label": "Test employee profile",
+    value: personId,
+    onChange: e => {
+      P(e.target.value);
+      S(null);
+      Edit(null);
+      Page('catalogue');
+      C('All apps');
+      Q('');
+      SQ('');
+    }
+  }, personas.map(p => React.createElement("option", {
+    key: p.id,
+    value: p.id
+  }, profileLabel(p), data.admins.includes(p.id) ? ' · Admin' : ''))))), page === 'catalogue' && React.createElement(React.Fragment, null, React.createElement("section", {
     className: "hero"
   }, React.createElement("div", null, React.createElement("div", {
     className: "eyebrow"
@@ -802,7 +1105,9 @@ function CatalogueApp({
     app: a
   }), React.createElement("span", {
     className: "badge"
-  }, a.platforms.join(' · '))), React.createElement("h3", null, a.name), React.createElement("p", null, a.shortDescription), React.createElement("div", {
+  }, a.platforms.join(' · '))), React.createElement("h3", null, a.name, a.isTestScenario && React.createElement("span", {
+    className: "test-app-tag"
+  }, "TEST APP")), React.createElement("p", null, a.shortDescription), React.createElement("div", {
     className: "cardfoot"
   }, React.createElement("span", {
     className: "categorylabel"
@@ -1032,7 +1337,7 @@ function CatalogueApp({
     }
   }, data.admins.includes(p.id) ? 'Revoke admin' : 'Grant admin')))), adminTab === 'Activity' && React.createElement(React.Fragment, null, React.createElement("p", {
     className: "info"
-  }, "Separate records for every search, open and admin change. These are browser-local demo records; an app click does not confirm installation."), React.createElement("div", {
+  }, "Separate records for every search, open and admin change. ", sharedState ? 'The latest 200 database records are shown; an app click does not confirm installation.' : 'These are browser-local demo records; an app click does not confirm installation.'), React.createElement("div", {
     className: "tablewrap"
   }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Time"), React.createElement("th", null, "Person"), React.createElement("th", null, "Action"), React.createElement("th", null, "Item"), React.createElement("th", null, "Record"))), React.createElement("tbody", null, [...data.events].reverse().map(ev => React.createElement("tr", {
     key: ev.id
@@ -1050,7 +1355,7 @@ function CatalogueApp({
     }
   }, JSON.stringify(ev, null, 2)))))), !data.events.length && React.createElement("tr", null, React.createElement("td", {
     colSpan: "5"
-  }, "No activity yet. Search for an app or make an admin change."))))))), page === 'about' && React.createElement("section", {
+  }, "No activity yet. Search for an app or make an admin change."))))))), page === 'about' && !companyUser && !sharedState && React.createElement("section", {
     className: "panel about"
   }, React.createElement("div", {
     className: "eyebrow",
@@ -1076,7 +1381,17 @@ function CatalogueApp({
         Toast('Demo reset to sample data.');
       }
     }
-  }, "Reset demo data")))), React.createElement("footer", null, React.createElement("span", null, React.createElement("b", null, "ar\xE7elik"), " \xA0\xB7\xA0 App Store"), React.createElement("span", null, "Made for a more connected workday."), React.createElement("span", null, "Interactive MVP \xB7 Test environment")), editing && isAdmin && React.createElement(Editor, {
+  }, "Reset demo data"))), page === 'about' && sharedState && React.createElement("section", {
+    className: "panel about"
+  }, React.createElement("h2", null, "Shared Test catalogue"), React.createElement("p", null, "Catalogue edits, targeting, translations, admin assignments and activity are saved in the Test PostgreSQL database and shared across browsers. The selected employee is a synthetic Test profile."), React.createElement("p", null, "Only an Admin can save catalogue changes. Managers are an employee attribute and do not automatically receive Admin access. The Test database is separate from any future Production data."), React.createElement("button", {
+    className: "btn primary",
+    onClick: () => Page('catalogue')
+  }, "Back to catalogue")), page === 'about' && companyUser && React.createElement("section", {
+    className: "panel about"
+  }, React.createElement("h2", null, "Your application catalogue"), React.createElement("p", null, "Your company gateway verifies your identity. The server shows applications matching your country and employee classification. Profile switching and browser-local administration are unavailable in this mode."), React.createElement("p", null, "This is a pilot catalogue with sample inventory. Please contact your administrator if an application or download address is missing."), React.createElement("button", {
+    className: "btn primary",
+    onClick: () => Page('catalogue')
+  }, "Back to catalogue"))), React.createElement("footer", null, React.createElement("span", null, React.createElement("b", null, "ar\xE7elik"), " \xA0\xB7\xA0 App Store"), React.createElement("span", null, "Made for a more connected workday."), React.createElement("span", null, "Interactive MVP \xB7 Test environment")), editing && isAdmin && React.createElement(Editor, {
     app: editing,
     categories: data.categories,
     person: person,
@@ -1090,4 +1405,232 @@ function CatalogueApp({
     }
   }, toast));
 }
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(CatalogueApp, null));
+function ProfileNotice({
+  title,
+  message,
+  code,
+  onRetry
+}) {
+  return React.createElement("main", {
+    className: "main"
+  }, React.createElement("section", {
+    className: "panel about",
+    role: "alert"
+  }, React.createElement("div", {
+    className: "brand",
+    style: {
+      marginBottom: 25
+    }
+  }, React.createElement("span", {
+    className: "brandmark"
+  }), "ar\xE7elik"), React.createElement("h2", null, title), React.createElement("p", {
+    className: "info"
+  }, message), code && React.createElement("p", {
+    className: "info"
+  }, "Support reference: ", code), onRetry && React.createElement("button", {
+    className: "btn primary",
+    onClick: onRetry
+  }, "Try again")));
+}
+function NormCatalogue() {
+  const [state, State] = useState({
+      loading: true
+    }),
+    [reload, Reload] = useState(0);
+  useEffect(() => {
+    let alive = true,
+      controller;
+    async function load() {
+      controller?.abort();
+      controller = new AbortController();
+      const signal = controller.signal;
+      State({
+        loading: true
+      });
+      try {
+        const response = await fetch('/api/me', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          signal
+        });
+        const me = await response.json();
+        if (!response.ok) throw Object.assign(new Error(me.message || 'Your company profile could not be verified.'), {
+          code: me.correlationId
+        });
+        if (!me.verified || !me.canBrowse) throw Object.assign(new Error('Your country and employee classification have not been supplied or configured. Please contact your platform team.'), {
+          code: me.profileStatus
+        });
+        const r = await fetch('/api/apps', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          signal
+        });
+        const apps = await r.json();
+        if (!r.ok || !Array.isArray(apps)) throw Object.assign(new Error(apps.message || 'Your applications could not be loaded.'), {
+          code: apps.correlationId
+        });
+        if (alive) State({
+          me,
+          apps
+        });
+      } catch (e) {
+        if (alive && e.name !== 'AbortError') State({
+          error: e.message,
+          code: e.code
+        });
+      }
+    }
+    load();
+    window.addEventListener('focus', load);
+    return () => {
+      alive = false;
+      controller?.abort();
+      window.removeEventListener('focus', load);
+    };
+  }, [reload]);
+  if (state.loading) return React.createElement(ProfileNotice, {
+    title: "Loading your applications\u2026",
+    message: "Checking your company profile."
+  });
+  if (state.error) return React.createElement(ProfileNotice, {
+    title: "Your profile needs attention",
+    message: state.error,
+    code: state.code,
+    onRetry: () => Reload(x => x + 1)
+  });
+  const me = state.me,
+    person = {
+      id: me.employeeId,
+      name: me.email || me.employeeId,
+      country: me.country,
+      type: me.type,
+      isManager: me.isManager === true,
+      initials: (me.email || me.employeeId).slice(0, 2).toUpperCase()
+    };
+  const data = {
+    ...initial(),
+    apps: state.apps,
+    categories: [...new Set(state.apps.flatMap(a => a.categories || []))],
+    admins: [],
+    events: []
+  };
+  return React.createElement(CatalogueApp, {
+    key: me.employeeId + me.country + me.type,
+    companyUser: person,
+    serverData: data
+  });
+}
+function SharedTestCatalogue() {
+  const [persona, Persona] = useState('rumeysa'),
+    [state, State] = useState({
+      loading: true
+    }),
+    [saving, Saving] = useState(false);
+  const active = React.useRef(persona);
+  active.current = persona;
+  async function request(path, body) {
+    const response = await fetch(path, {
+      method: body ? 'POST' : 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        'X-Test-Persona': persona,
+        ...(body ? {
+          'Content-Type': 'application/json'
+        } : {})
+      },
+      ...(body ? {
+        body: JSON.stringify(body)
+      } : {})
+    });
+    let value;
+    try {
+      value = await response.json();
+    } catch {
+      value = {};
+    }
+    if (!response.ok) throw new Error(value.message || 'The shared Test database could not be reached. Please refresh and try again.');
+    return value;
+  }
+  useEffect(() => {
+    let alive = true;
+    const selected = persona;
+    async function load(silent = false) {
+      if (!silent) State({
+        loading: true
+      });
+      try {
+        const data = await request('/api/test/state');
+        if (alive && active.current === selected) State({
+          data
+        });
+      } catch (e) {
+        if (alive && active.current === selected) State({
+          error: e.message
+        });
+      }
+    }
+    load();
+    const focus = () => load(true);
+    window.addEventListener('focus', focus);
+    const timer = setInterval(() => load(true), 10000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      window.removeEventListener('focus', focus);
+    };
+  }, [persona]);
+  async function change(command) {
+    Saving(true);
+    try {
+      const data = await request('/api/test/admin/commands', command);
+      State({
+        data
+      });
+      return data;
+    } catch (e) {
+      try {
+        const data = await request('/api/test/state');
+        State({
+          data
+        });
+      } catch {}
+      throw e;
+    } finally {
+      Saving(false);
+    }
+  }
+  if (state.loading || state.data && state.data.profile?.id !== persona) return React.createElement(ProfileNotice, {
+    title: "Loading the shared Test catalogue\u2026",
+    message: "Connecting to the Test database."
+  });
+  if (state.error) return React.createElement(ProfileNotice, {
+    title: "The Test database needs attention",
+    message: state.error,
+    onRetry: () => window.location.reload()
+  });
+  return React.createElement("div", {
+    "aria-busy": saving,
+    style: {
+      pointerEvents: saving ? 'none' : 'auto'
+    }
+  }, React.createElement(CatalogueApp, {
+    key: persona,
+    serverData: state.data,
+    sharedState: state.data,
+    sharedPersona: persona,
+    onPersonaChange: Persona,
+    onDatabaseChange: change
+  }));
+}
+function ApplicationRoot() {
+  const mode = window.ARCELIK_RUNTIME?.mode;
+  if (mode === 'testdb') return React.createElement(SharedTestCatalogue, null);
+  if (mode === 'demo') return React.createElement(CatalogueApp, null);
+  if (mode === 'authgate') return React.createElement(NormCatalogue, null);
+  return React.createElement(ProfileNotice, {
+    title: "Application configuration is unavailable",
+    message: "Please refresh. If the problem continues, contact your platform team."
+  });
+}
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(ApplicationRoot, null));

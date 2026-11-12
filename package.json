@@ -2,13 +2,13 @@
   "name": "arcelik-app-store-mvp",
   "version": "0.1.0",
   "private": true,
-  "description": "Browser-local React demo with a .NET static hosting wrapper; Okta configuration pending.",
+  "description": "Arcelik App Store Test MVP with shared PostgreSQL storage and bundled Compose setup",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "build": "node scripts/build.cjs",
-    "test": "node tests/mvp.cjs"
+    "test": "node tests/mvp.cjs && node tests/authgate-ui.cjs && node tests/test-profiles.cjs && node tests/shared-db-ui.cjs"
   },
   "devDependencies": {
     "@babel/core": "7.26.0",

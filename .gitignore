@@ -9,3 +9,5 @@ node_modules/
 **/appsettings.*.local.json
 .DS_Store
 *.zip
+
+.secrets/

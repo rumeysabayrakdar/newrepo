@@ -1,1 +1,0 @@
-const fs=require('node:fs');const path=require('node:path');const babel=require('@babel/core');const root=path.join(__dirname,'..');const result=babel.transformFileSync(path.join(root,'app.jsx'),{presets:['@babel/preset-react'],comments:false});fs.writeFileSync(path.join(root,'dist/app.js'),result.code+'\n');console.log('Compiled app.jsx to dist/app.js');

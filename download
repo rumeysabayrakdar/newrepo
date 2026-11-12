@@ -1,0 +1,21 @@
+# Adapted from the uploaded file named download.
+.git
+.github
+.openai
+node_modules
+**/node_modules
+**/bin
+**/obj
+.vs
+.vscode
+.idea
+*.zip
+**/*.zip
+.env
+.env.*
+**/secrets.json
+**/appsettings.*.local.json
+**/appsettings.Production.json
+tests
+attachments
+work

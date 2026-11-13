@@ -49,6 +49,6 @@ Use your platform's PostgreSQL backup/restore tooling. Named volumes preserve da
 - GET /api/apps/{id}: available app detail.
 - POST /api/admin/commands: validated, authorized CRUD/reference/access operations with expected revision; writes and audit are atomic.
 - POST /api/events/search: one record per submitted search.
-- GET /api/open/{appId}/links/{linkId} and corresponding documents route: recheck app/link active/archive state, resolve stored HTTPS destination, log and redirect. Test navigation appends a known testUser; Production ignores it and verifies gateway identity.
+- GET /api/open/{appId}/links/{linkId} and corresponding documents route: recheck app/link active/archive state, resolve stored HTTPS destination, record a distinct redirect_issued/blocked outcome (including HTTP status and reason), then redirect or reject. Test navigation appends a known testUser; Production ignores it and verifies gateway identity.
 
 Production live Norm/Okta configuration has not been accessed by this project. A passing isolated Production-mode test does not prove the actual Norm tenant/gateway is connected.

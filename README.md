@@ -12,6 +12,10 @@ The initial inventory contains the six applications you supplied. Download addre
 
 Edit an application and use Application translations → Content language to enter English (en) and Turkish (tr) names, summaries and descriptions. Original fields remain the fallback for each empty translation. Both languages save together in PostgreSQL. The header language selector updates cards, details and catalogue search; Admin search uses the selected name. Private preview follows the editor content language. Version, platforms and destinations stay shared. No automatic translation is performed and existing content is not rewritten.
 
+## Current agreed scope
+
+See [ACCEPTANCE-STATUS.md](ACCEPTANCE-STATUS.md) for ticket decisions. HTTPS APK download addresses are supported; APK binaries are served from company storage or another download host. Every authenticated open attempt records its result (redirect issued or blocked), reason and HTTP status. External download completion or installation cannot be inferred from a redirect. Phone verification, full UAT and operations acceptance are deferred by user instruction. Okta is configured in Norm.
+
 ## Test and Production
 
 The **only environment switch** is `AppStore:Environment` in `src/AppStore.Web/appsettings.json`:

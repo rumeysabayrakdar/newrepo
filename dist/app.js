@@ -907,9 +907,9 @@ function Application() {
     className: "info"
   }, "Latest 200 activity records. An app-open click does not confirm installation."), React.createElement("div", {
     className: "tablewrap"
-  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Time"), React.createElement("th", null, "User"), React.createElement("th", null, "Action"), React.createElement("th", null, "Item"), React.createElement("th", null, "Details"))), React.createElement("tbody", null, [...data.events].reverse().map(e => React.createElement("tr", {
+  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Time"), React.createElement("th", null, "User"), React.createElement("th", null, "Action"), React.createElement("th", null, "Item"), React.createElement("th", null, "Result"), React.createElement("th", null, "Details"))), React.createElement("tbody", null, [...data.events].reverse().map(e => React.createElement("tr", {
     key: e.id
-  }, React.createElement("td", null, new Date(e.time).toLocaleString()), React.createElement("td", null, e.actor), React.createElement("td", null, e.action), React.createElement("td", null, e.entity), React.createElement("td", null, React.createElement("details", null, React.createElement("summary", null, e.id.slice(0, 8)), React.createElement("pre", {
+  }, React.createElement("td", null, new Date(e.time).toLocaleString()), React.createElement("td", null, e.actor), React.createElement("td", null, e.action), React.createElement("td", null, e.entity), React.createElement("td", null, e.after?.outcome === 'redirect_issued' ? 'Link opened' : e.after?.outcome === 'blocked' ? 'Blocked' : '—'), React.createElement("td", null, React.createElement("details", null, React.createElement("summary", null, e.id.slice(0, 8)), React.createElement("pre", {
     style: {
       maxWidth: 350,
       maxHeight: 300,
@@ -918,7 +918,7 @@ function Application() {
       fontSize: 10
     }
   }, JSON.stringify(e, null, 2)))))), !data.events.length && React.createElement("tr", null, React.createElement("td", {
-    colSpan: "5"
+    colSpan: "6"
   }, "No activity yet.")))))))), React.createElement("footer", null, React.createElement("span", null, React.createElement("b", null, "ar\xE7elik"), " \xB7 App Store"), React.createElement("span", null, error ? 'Connection interrupted' : 'Connected', " \xB7 ", runtime.environment), React.createElement("span", null, "Application catalogue")), editing && admin && React.createElement(Editor, {
     language: lang,
     app: editing,

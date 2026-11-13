@@ -22,6 +22,10 @@ The save check now uses Hosting:TrustedPublicOrigin when configured, so a public
 
 Release publish and existing React UI suite passed. tests/app-translations.cjs passed against live .NET/PostgreSQL: EN/TR draft switching and private preview, saving both dictionaries, fresh-client reads, localized cards/details/search, original and whitespace fallback, rejection of unsupported languages/invalid types/lengths, and Employee write denial. No destructive database migration is required; optional translations are stored with existing JSONB catalogue data. The declined application-backup feature is excluded from this update. Norm deployment and visual browser QA remain unverified.
 
+## Open-attempt outcome logging
+
+Release publish, React tests and live PostgreSQL outcome checks passed. tests/open-outcomes.cjs verifies HTTPS APK redirect handling, separate repeated events and persisted blocked outcomes for pending, inactive, missing, archived and unsafe destinations, with actor/app/link/time/status/reason. React tests verify Result labels in Activity. EN/TR editing regression also passed. No external file transfer or installation is claimed by a redirect record.
+
 ## Practical limits
 
 These running databases belong to this development workspace. This does not provision a database in Norm or verify Norm's GitHub importer, live routing or live Okta configuration. Hosting must run the supplied services or provide PostgreSQL and its secret connection settings. Production additionally needs the actual trusted gateway network ranges and initial administrator employee IDs.

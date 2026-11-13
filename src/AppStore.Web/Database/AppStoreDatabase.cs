@@ -221,11 +221,23 @@ public sealed class AppStoreDatabase : IAsyncDisposable
         var (state, _) = await Load(connection, tx, false);
         var app = state["apps"]!.AsArray().OfType<JsonObject>().SingleOrDefault(a => Text(a, "id") == appId && Eligible(a, person));
         var link = app?[collection]?.AsArray().OfType<JsonObject>().SingleOrDefault(l => Text(l, "id") == linkId);
-        if (link is null || link["pending"]?.GetValue<bool>() == true || link["isActive"]?.GetValue<bool>() == false) throw Error(404, "link_unavailable", "This application or link is unavailable for your profile.");
-        var url = Text(link, "url");
-        if (!(collection == "documents" && url == "guide.html") && !SafeUrl(url)) throw Error(400, "unsafe_url", "This destination is unavailable.");
-        await WriteEvent(connection, tx, person, "user", collection == "links" ? "Application opened" : "Document opened", Text(app!, "name"), correlationId, null, new JsonObject { ["applicationId"] = appId, ["linkId"] = linkId });
-        await tx.CommitAsync(); return url == "guide.html" ? "/guide.html" : url;
+        var url = link is null ? "" : Text(link, "url");
+        var status = 302; var outcome = "redirect_issued"; var reason = "stored_destination";
+        if (app is null) { status = 404; outcome = "blocked"; reason = "application_unavailable"; }
+        else if (link is null || link["pending"]?.GetValue<bool>() == true || link["isActive"]?.GetValue<bool>() == false)
+        { status = 404; outcome = "blocked"; reason = "link_unavailable"; }
+        else if (!(collection == "documents" && url == "guide.html") && !SafeUrl(url))
+        { status = 400; outcome = "blocked"; reason = "unsafe_destination"; }
+        // Record each authenticated attempt, including blocked attempts. A redirect
+        // does not prove an external file transferred or an application installed.
+        await WriteEvent(connection, tx, person, "user", collection == "links" ? "Application opened" : "Document opened",
+            app is null ? appId : Text(app, "name"), correlationId, null,
+            new JsonObject { ["applicationId"] = appId, ["linkId"] = linkId, ["collection"] = collection,
+                ["outcome"] = outcome, ["statusCode"] = status, ["reason"] = reason });
+        await tx.CommitAsync();
+        if (status == 404) throw Error(404, "link_unavailable", "This application or link is unavailable.");
+        if (status == 400) throw Error(400, "unsafe_url", "This destination is unavailable.");
+        return url == "guide.html" ? "/guide.html" : url;
     }
     public static bool Eligible(JsonObject app, AppUser person) => app["isActive"]?.GetValue<bool>() == true && app["isArchived"]?.GetValue<bool>() == false;
     private static async Task<bool> UserExists(NpgsqlConnection c,NpgsqlTransaction t,string id){await using var cmd=new NpgsqlCommand("SELECT 1 FROM appstore.users WHERE id=@id",c,t);cmd.Parameters.AddWithValue("id",id);return await cmd.ExecuteScalarAsync() is not null;}

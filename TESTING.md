@@ -20,6 +20,7 @@ npm test
 ```
 
 Current automated suites:
+- tests/open-outcomes.cjs: real PostgreSQL APK/document redirects, repeated and blocked attempts, persisted outcomes and unsafe legacy URL rejection.
 - tests/app-translations.cjs: live React/PostgreSQL EN/TR editing, preview isolation, persisted translations, localized browsing/search, fallback and API validation.
 - tests/origin-gateway.cjs: real PostgreSQL saves using the public Origin and an internal Host; rejects wrong origins/cross-site requests and restores the edited test record.
 - tests/ui.cjs: real React screens, manual filters, no employment fields/local-storage dependency, save conflict feedback and Production account separation.
@@ -31,3 +32,5 @@ Current automated suites:
 The integration suites expect isolated local Compose stacks named arcelik-real-test and arcelik-real-production. They deliberately write synthetic records and restart the Test application. Never run them against live employee data. Test URLs default to ports 18086 and 8081 and can be overridden with TEST_URL/PRODUCTION_URL. The migration check uses a disposable extra database on the isolated Test cluster.
 
 Older v0.x test files are preserved for historical reference. They cover requirements that were explicitly replaced (demo storage and employee targeting) and are not the current test command.
+
+Phone verification, full UAT (QA-02) and operations checks (OPS-01) are not current acceptance gates per the latest user instructions. Automated focused regression checks still run for implementation changes.

@@ -1,3 +1,3 @@
-# Original planning documents
+# Historical planning attachments
 
-These are the three original design/planning attachments, preserved for reference. They describe the intended full application, including backend features that are not yet implemented. The project root README.md and VALIDATION.md describe the delivered demo. No presentation file was provided in this conversation.
+These original attachments are preserved for reference, not current deployment instructions. The latest product decision replaces employment-based targeting and demo storage with one .NET/React/PostgreSQL application, manual browsing filters, and JSON-only Test/Production selection. The root README, START-HERE and DEPLOYMENT files describe the current project.

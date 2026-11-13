@@ -1,0 +1,51 @@
+name: arcelik-appstore-production
+services:
+  initialize-secret:
+    image: alpine:3.22
+    restart: "no"
+    volumes:
+      - production-secrets:/secrets
+    command:
+      - sh
+      - -ec
+      - |
+        umask 077
+        if [ ! -s /secrets/postgres-password ]; then
+          head -c 48 /dev/urandom | base64 | tr -d '\n' > /secrets/postgres-password
+        fi
+        chown 1654:1654 /secrets/postgres-password
+        chmod 0400 /secrets/postgres-password
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    depends_on:
+      initialize-secret:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_DB: arcelik_appstore_production
+      POSTGRES_USER: appstore_production
+      POSTGRES_PASSWORD_FILE: /run/appstore-secrets/postgres-password
+    volumes:
+      - production-postgres:/var/lib/postgresql/data
+      - production-secrets:/run/appstore-secrets:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appstore_production -d arcelik_appstore_production"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8081:8080"
+    environment:
+      Database__PasswordFile: /run/appstore-secrets/postgres-password
+    volumes:
+      - production-secrets:/run/appstore-secrets:ro
+      - ./deployment/production/appsettings.json:/app/appsettings.json:ro
+volumes:
+  production-postgres:
+  production-secrets:

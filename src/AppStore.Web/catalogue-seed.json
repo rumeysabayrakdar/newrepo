@@ -1,0 +1,234 @@
+{
+  "state": {
+    "apps": [
+      {
+        "id": "perakende-akademi",
+        "name": "Perakende Akademi",
+        "version": "2.2.2",
+        "platforms": [
+          "iOS"
+        ],
+        "symbol": "PA",
+        "color": "#f6f8ed",
+        "bg": "#686e70",
+        "tab": "arcelik",
+        "categories": [
+          "Productivity"
+        ],
+        "description": "Perakende Akademi mobil uygulaması sadece Arçelik Pazarlama A.Ş. bayilerinin ve saha ekiplerinin kullanabildiği kapalı devre bir uygulamadır.",
+        "shortDescription": "Perakende Akademi mobil uygulaması sadece Arçelik Pazarlama A.Ş. bayilerinin ve saha ekiplerinin kullanabildiği kapalı devre bir uygulamadır.",
+        "links": [
+          {
+            "id": "perakende-akademi-ios",
+            "label": "Perakende Akademi for iOS",
+            "platform": "iOS",
+            "version": "2.2.2",
+            "url": "",
+            "pending": true
+          }
+        ],
+        "documents": [],
+        "images": [],
+        "isActive": true,
+        "isArchived": false,
+        "source": "legacy-catalogue-screenshot"
+      },
+      {
+        "id": "servis-akademi",
+        "name": "Servis Akademi",
+        "version": "1.0.2",
+        "platforms": [
+          "iOS"
+        ],
+        "symbol": "SA",
+        "color": "#ed950d",
+        "bg": "#f5f6f7",
+        "tab": "arcelik",
+        "categories": [
+          "Productivity"
+        ],
+        "description": "Servis Akademi mobil uygulaması sadece Arçelik Pazarlama A.Ş. Yetkili Servislerinin ve çalışanlarının kullanabildiği kapalı devre bir uygulamadır.",
+        "shortDescription": "Servis Akademi mobil uygulaması sadece Arçelik Pazarlama A.Ş. Yetkili Servislerinin ve çalışanlarının kullanabildiği kapalı devre bir uygulamadır.",
+        "links": [
+          {
+            "id": "servis-akademi-ios",
+            "label": "Servis Akademi for iOS",
+            "platform": "iOS",
+            "version": "1.0.2",
+            "url": "",
+            "pending": true
+          }
+        ],
+        "documents": [],
+        "images": [],
+        "isActive": true,
+        "isArchived": false,
+        "source": "legacy-catalogue-screenshot"
+      },
+      {
+        "id": "perakende-akademi-ar",
+        "name": "Perakende Akademi (AR)",
+        "version": "1.0.0",
+        "platforms": [
+          "iOS"
+        ],
+        "symbol": "AR",
+        "color": "#ffffff",
+        "bg": "#ff9d13",
+        "tab": "arcelik",
+        "categories": [
+          "Productivity"
+        ],
+        "description": "Perakende Akademisi Augmented Reality Uygulaması (Test).",
+        "shortDescription": "Perakende Akademisi Augmented Reality Uygulaması (Test).",
+        "links": [
+          {
+            "id": "perakende-akademi-ar-ios",
+            "label": "Perakende Akademi (AR) for iOS",
+            "platform": "iOS",
+            "version": "1.0.0",
+            "url": "",
+            "pending": true
+          }
+        ],
+        "documents": [],
+        "images": [],
+        "isActive": true,
+        "isArchived": false,
+        "source": "legacy-catalogue-screenshot"
+      },
+      {
+        "id": "okta-verify-china",
+        "name": "Okta Verify (for China)",
+        "version": "6.1.1",
+        "platforms": [
+          "Android"
+        ],
+        "symbol": "✓",
+        "color": "#ffffff",
+        "bg": "#139acc",
+        "tab": "other",
+        "categories": [
+          "Business tools"
+        ],
+        "description": "Okta Verify App for Arçelik Global users in China.",
+        "shortDescription": "Okta Verify App for Arçelik Global users in China.",
+        "links": [
+          {
+            "id": "okta-verify-china-android",
+            "label": "Okta Verify (for China) for Android",
+            "platform": "Android",
+            "version": "6.1.1",
+            "url": "",
+            "pending": true
+          }
+        ],
+        "documents": [],
+        "images": [],
+        "isActive": true,
+        "isArchived": false,
+        "source": "legacy-catalogue-screenshot"
+      },
+      {
+        "id": "bizpuan",
+        "name": "BizPuan",
+        "version": "2.7",
+        "platforms": [
+          "iOS",
+          "Android"
+        ],
+        "symbol": "●",
+        "color": "#078bc3",
+        "bg": "#ffffff",
+        "tab": "arcelik",
+        "categories": [
+          "Business tools"
+        ],
+        "description": "Bayi ve Servis çalışanlarının çeşitli kurgular ile puan kazanmalarını ve bu puanları harcamalarını sağlayan sadakat uygulamasıdır.",
+        "shortDescription": "Bayi ve Servis çalışanlarının çeşitli kurgular ile puan kazanmalarını ve bu puanları harcamalarını sağlayan sadakat uygulamasıdır.",
+        "links": [
+          {
+            "id": "bizpuan-ios",
+            "label": "BizPuan for iOS",
+            "platform": "iOS",
+            "version": "2.7",
+            "url": "",
+            "pending": true
+          },
+          {
+            "id": "bizpuan-android",
+            "label": "BizPuan for Android",
+            "platform": "Android",
+            "version": "2.7",
+            "url": "",
+            "pending": true
+          }
+        ],
+        "documents": [],
+        "images": [],
+        "isActive": true,
+        "isArchived": false,
+        "source": "legacy-catalogue-screenshot"
+      },
+      {
+        "id": "sirius-tech",
+        "name": "SiriusTech",
+        "version": "1.0.2",
+        "platforms": [
+          "Android"
+        ],
+        "symbol": "✦",
+        "color": "#bfe8ff",
+        "bg": "#082d57",
+        "tab": "arcelik",
+        "categories": [
+          "Business tools"
+        ],
+        "description": "Sirius Tech Application.",
+        "shortDescription": "Sirius Tech Application.",
+        "links": [
+          {
+            "id": "sirius-tech-android",
+            "label": "SiriusTech for Android",
+            "platform": "Android",
+            "version": "1.0.2",
+            "url": "",
+            "pending": true
+          }
+        ],
+        "documents": [],
+        "images": [],
+        "isActive": true,
+        "isArchived": false,
+        "source": "legacy-catalogue-screenshot"
+      }
+    ],
+    "categories": [
+      "Productivity",
+      "Business tools",
+      "Communication",
+      "Lifestyle"
+    ],
+    "admins": [],
+    "translations": {
+      "en": {
+        "heading": "Discover your everyday essentials.",
+        "subtitle": "The apps that bring us together and make work a little easier.",
+        "catalogue": "Application catalogue",
+        "search": "Search applications...",
+        "arcelik": "Developed by Arçelik",
+        "other": "Other applications",
+        "all": "All apps"
+      },
+      "tr": {
+        "heading": "İş gününüzün vazgeçilmezlerini keşfedin.",
+        "subtitle": "Bizi bir araya getiren ve işimizi kolaylaştıran uygulamalar.",
+        "catalogue": "Uygulama kataloğu",
+        "search": "Uygulama ara...",
+        "arcelik": "Arçelik uygulamaları",
+        "other": "Diğer uygulamalar",
+        "all": "Tüm uygulamalar"
+      }
+    }
+  }
+}

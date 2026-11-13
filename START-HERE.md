@@ -1,35 +1,21 @@
-# Your complete Test package
+# What to do next
 
-This ZIP includes the application **and a PostgreSQL Test database service**. It also includes automatic table setup, sample users/apps, shared saving and activity records. It has been tested with two independent browser clients and an app restart.
+The project is now one real .NET / React / PostgreSQL application. All application changes are saved to PostgreSQL and shared across users. Search, category and platform filters replace automatic employee-information filtering.
 
-## If you are uploading to Norm
+## Your Test version
 
-Ask Norm this specific compatibility question:
+1. Import the latest main branch from GitHub, or upload the latest complete ZIP.
+2. Keep `AppStore:Environment` as `Test` in appsettings.json.
+3. Start the app with its PostgreSQL service, or use the managed PostgreSQL connection Norm supplies.
+4. Open the site. Choose Rümeysa to browse and Zeynep to manage applications.
+5. Save an app change, then check it from another browser. Refreshing or restarting the app does not erase the change.
 
-> Does importing this ZIP deploy the services in compose.yaml (application + PostgreSQL + persistent volumes), or does it only build the Dockerfile?
+If Norm runs the included Compose services, the database and its private password are set up automatically. If it only runs the Dockerfile, its platform must provide the database and secure connection. Uploading code cannot override Norm infrastructure permissions or fix an empty repository-checkout path in the importer.
 
-- If Norm runs Compose services, use this complete package. The database is initialized automatically; there is no database password to type or share.
-- If Norm only builds the Dockerfile, its platform must provide a PostgreSQL database separately. The files cannot override Norm permissions. DATABASE-SETUP.md gives the configuration names for the person who manages the platform.
+## When you are ready for Production
 
-Do not assume the database is connected just because deployment says Active. The catalogue banner must say **SHARED TEST DATABASE**. **TEST ENVIRONMENT** with a note about browser-only changes is the standalone preview, not shared saving.
+A hosting administrator supplies the Production database connection, trusted Norm gateway network and the first Admin's real employee ID. Then the appsettings environment selector is changed to Production. Test and Production use separate data and credentials.
 
-## On a host with Docker Compose
+You do not need country, white-/blue-collar or manager claims. Okta is used only for sign-in and identifying the user. No extra application login page is shown.
 
-A developer or hosting administrator can run this project with:
-
-```sh
-docker compose up --build -d
-```
-
-It serves port 8080. Credentials are generated privately into a Docker volume and reused. The database has its own persistent volume. Regular stop/restart preserves data. Do not remove the database/secrets volumes unless intentionally resetting this disposable Test environment.
-
-You do not need to install anything on your PC to upload the ZIP or use the deployed website.
-
-## What to try
-
-1. Select a Test employee and the Test scenarios category.
-2. Select Zeynep, open Administration, edit an application, preview, and save.
-3. Open the site in another browser and select an eligible employee. The saved change is shared.
-4. Review Activity as an Admin. Each repeated search/open/change has its own database record.
-
-These are synthetic Test profiles. Production remains blocked. Existing browser-only edits are not automatically imported into a newly created database and are not erased from the browser.
+Do not paste passwords into chat or GitHub. DEPLOYMENT.md contains the operator settings; you do not need to understand them to test the application.

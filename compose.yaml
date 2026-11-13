@@ -42,8 +42,6 @@ services:
     ports:
       - "8080:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: Test
-      DOTNET_ENVIRONMENT: Test
       Database__PasswordFile: /run/appstore-secrets/postgres-password
     volumes:
       - test-secrets:/run/appstore-secrets:ro

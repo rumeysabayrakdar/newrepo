@@ -1,36 +1,31 @@
-# Test the employee scenarios
+# Test the real application
 
-1. Open the application. It opens directly into Test mode, without an application Okta login.
-2. Use the **Test employee** selector above the catalogue.
-3. Select the **Test scenarios** category to see only the clearly labelled synthetic examples.
+Test uses a running PostgreSQL database, not browser-local saving. The account selector offers Rümeysa (Employee) and Zeynep (initial Admin).
 
-| Profile | Country | Employee type | Manager? | Expected test apps |
-| --- | --- | --- | --- | --- |
-| Rümeysa | Türkiye | White-collar | No | Türkiye Office Tools; Türkiye & Spain Hub |
-| Emre | Türkiye | Blue-collar | No | Türkiye Team Tools; Türkiye & Spain Hub |
-| Lucía | Spain | White-collar | No | Spain Office Tools; Türkiye & Spain Hub |
-| Diego | Spain | Blue-collar | No | Spain Team Tools; Türkiye & Spain Hub |
-| Elif | Türkiye | White-collar | Yes | Türkiye Office Tools; Türkiye & Spain Hub; Manager Workspace |
-| Carlos | Spain | White-collar | Yes | Spain Office Tools; Türkiye & Spain Hub; Manager Workspace |
-| Zeynep (Admin) | Türkiye | White-collar | No | Same employee visibility as Rümeysa; can edit targeting |
-| Alex (extra UK scenario) | United Kingdom | Blue-collar | No | No Test scenarios apps; other eligible catalogue apps remain |
+1. Browse both catalogue tabs. Search for an app and choose category/platform filters.
+2. Open details. All listed platform options are available independently of device or employee information. Pending addresses show Coming soon.
+3. Choose Zeynep → Administration. Add/edit an app and inspect the private preview. Nothing changes until Save.
+4. Save and open the site in another browser. Both see the same saved catalogue.
+5. Change active/archive state. Employees do not see inactive/archived entries. Restore without deleting history.
+6. Manage categories, translations and Admin access for existing accounts. Manager/country/collar fields do not exist.
+7. Review Activity. Repeated actions produce separate records. A click is not proof of installation.
+8. Open the same editor in two browsers, save one, then attempt to save the older draft. The older draft remains open and does not overwrite the new value.
 
-All identities are synthetic. Manager is an independent employee attribute, not an application role. It never grants Admin. The two application roles remain Employee and Admin.
+Development commands:
 
-To change a restriction, select Zeynep, open Administration, edit an app, choose countries/employee types or **Managers only**, preview, and save. Switch back to an employee to check the result. Empty countries mean Global. Archived/inactive apps remain hidden. The supplied real-app inventory and previous sample apps are retained; their example targeting is not an approved production mapping.
+```sh
+npm ci
+npm run build
+npm test
+```
 
-The synthetic example apps have no real download destination and show **Coming soon**. The previously imported screenshot apps still need approved download addresses. Existing browser data is migrated without resetting edited apps, roles or activity. Legacy Office/Field assignments are renamed White-collar/Blue-collar.
+Current automated suites:
+- tests/ui.cjs: real React screens, manual filters, no employment fields/local-storage dependency, save conflict feedback and Production account separation.
+- tests/integration.cjs: isolated Test and simulated-gateway Production stacks, actual PostgreSQL, persistence/restart, admin rules, manual filters, environment isolation, safe redirects and append-only events.
+- tests/workflow.cjs: two React clients against the running .NET/PostgreSQL Test service.
+- tests/isolation.cjs: Production refuses an existing Test database without changing it.
+- tests/migration.cjs: isolated legacy schema upgrade preserving custom data and event IDs while removing targeting.
 
-## Norm deployment
+The integration suites expect isolated local Compose stacks named arcelik-real-test and arcelik-real-production. They deliberately write synthetic records and restart the Test application. Never run them against live employee data. Test URLs default to ports 18086 and 8081 and can be overridden with TEST_URL/PRODUCTION_URL. The migration check uses a disposable extra database on the isolated Test cluster.
 
-Upload the full ZIP as a new version. The packaged container already selects ASPNETCORE_ENVIRONMENT=Test; appsettings.Test.json enables the synthetic experience. Any existing Norm environment selector should also remain Test (both ASPNETCORE_ENVIRONMENT and DOTNET_ENVIRONMENT if present). The application forces synthetic mode in Test even when an older AppStore__Mode=AuthGate or EnableDemo=false setting remains.
-
-This changes the application's identity mode only. Norm's own external access policy is separate; if it still requests company sign-in before the app opens, only the platform administrator can change that policy.
-
-## Production remains pending
-
-Production startup is deliberately blocked. Auth-gate integration is retained for developer integration testing in Development. Real country/classification and manager attributes must come from a confirmed trusted gateway contract. No country/classification/manager header name has been invented. A missing manager attribute is not treated as manager access. Shared database, real admin APIs/assignments and production readiness remain future work.
-
-## Shared PostgreSQL mode
-
-The complete package now includes compose.yaml with the app and PostgreSQL. Follow START-HERE.md and DATABASE-SETUP.md. In shared mode the banner says **SHARED TEST DATABASE**. Changes saved as Zeynep appear for other eligible employees/browsers, and activity is stored in PostgreSQL. Draft preview remains private. The static Codex preview is still browser-local. Newly initialized databases use the supplied sample seed, not another browser's saved edits.
+Older v0.x test files are preserved for historical reference. They cover requirements that were explicitly replaced (demo storage and employee targeting) and are not the current test command.

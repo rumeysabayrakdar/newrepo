@@ -1,14 +1,14 @@
 {
-  "name": "arcelik-app-store-mvp",
-  "version": "0.1.0",
+  "name": "arcelik-app-store",
+  "version": "1.0.0",
   "private": true,
-  "description": "Arcelik App Store Test MVP with shared PostgreSQL storage and bundled Compose setup",
+  "description": "PostgreSQL-backed .NET and React application catalogue with appsettings-selected Test and Production",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "build": "node scripts/build.cjs",
-    "test": "node tests/mvp.cjs && node tests/authgate-ui.cjs && node tests/test-profiles.cjs && node tests/shared-db-ui.cjs"
+    "test": "node tests/ui.cjs"
   },
   "devDependencies": {
     "@babel/core": "7.26.0",

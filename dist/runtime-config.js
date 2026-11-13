@@ -1,2 +1,2 @@
-// Static preview only. The .NET host replaces this response with its configured mode.
-window.ARCELIK_RUNTIME = Object.freeze({mode: "demo"});
+// Served dynamically by the .NET host. A static host cannot run this application.
+window.ARCELIK_RUNTIME = null;

@@ -10,8 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <EmbeddedResource Include="Database/schema.sql" />
-    <Content Update="test-seed.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Update="catalogue.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Update="catalogue-seed.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../dist/**/*" Exclude="../../dist/**/*.zip"
              Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

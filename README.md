@@ -1,72 +1,72 @@
-# Arçelik App Store — complete Test package
+# Arçelik App Store
 
-React catalogue and C#/.NET 10 backend, now with **shared PostgreSQL saving**. The ZIP includes the app, PostgreSQL service, automatic table setup, generated credentials, persistent Docker volumes and Test seed data.
+The real application catalogue: **.NET 10 + React + PostgreSQL 17**. There is one application and one database-backed implementation. No localStorage database, static demo backend, country targeting, collar-type targeting or manager targeting is used.
 
-**Start with [START-HERE.md](START-HERE.md).** Norm must support running the bundled Compose services or provide a managed PostgreSQL database. Importing source code alone does not grant platform infrastructure permissions.
+## What users can do
 
-## What works
+Everyone sees the same active, unarchived applications. Browse Developed by Arçelik / Other applications and filter by search, category and platform. Open details, links and documents. Administrators manage applications, versions, links, screenshots, documents, categories, translations, archive/status and Admin assignments. Unsaved preview stays private; saved changes are shared immediately.
 
-- Test profiles for Türkiye/Spain, white-collar/blue-collar employees and managers; Zeynep is the initial Test Admin. Manager is not an application role.
-- Country/type/manager filtering on both the shared Test backend and frontend; inactive/archived apps are hidden from employees.
-- Catalogue tabs, search, categories, details, platform links, screenshots and documents.
-- Shared app creation/editing, private unsaved preview, immediate save, active/archive/restore, categories, translations and Admin assignment to existing Test profiles.
-- Separate database rows for every repeated search/open/admin action, with unique IDs and actor/time metadata. Admin mutations and their audit rows commit together.
-- Concurrent-editor conflict checks, including an editor kept open during a background refresh. Conflicting drafts stay open.
-- Shared changes visible to other browsers and preserved on app restart.
+The initial inventory contains the six applications you supplied. Download addresses remain pending until an Admin enters verified URLs. No imaginary download destinations are seeded.
 
-Production startup remains blocked. Test users are synthetic; there is no application Okta login. The retained Development auth-gate pilot is documented in [OKTA-SETUP.md](OKTA-SETUP.md); real employee-data and production rollout remain pending.
+## Test and Production
 
-## Start the app and database together
+The **only environment switch** is `AppStore:Environment` in `src/AppStore.Web/appsettings.json`:
 
-On a host with Docker Compose:
+```json
+"AppStore": { "Environment": "Test" }
+```
+
+Set it to `Production` to load `appsettings.Production.json` instead of `appsettings.Test.json`. ASPNETCORE_ENVIRONMENT, DOTNET_ENVIRONMENT and AppStore__Environment variables cannot change this selection. Hosting secrets may still override connection/password/gateway settings; they never switch the selected environment.
+
+- **Test:** PostgreSQL is mandatory. The account selector offers Rümeysa (Employee) and Zeynep (initial Admin). No application Okta flow is used.
+- **Production:** Norm's Okta/auth-gate handles sign-in. The backend verifies its trusted source and standard identity headers. No Test selector or synthetic identities are available. All employees can browse the same active catalogue; no employment attributes are requested or required.
+
+A separate database name, environment marker, data volume and generated secret are used for each environment. Cross-environment reuse is rejected.
+
+## Start Test
+
+On a Docker Compose host:
 
 ```sh
 docker compose up --build -d
 ```
 
-The app publishes port 8080. PostgreSQL stays on the private Compose network. The initializer generates a password privately in a Docker volume; no password needs to be pasted into chat or source control. A separate named volume holds the database. Regular container restarts preserve the data.
+Open port 8080. PostgreSQL starts automatically, its password is generated privately, tables are created, and the six-app inventory is seeded once. Data survives app restarts. Do not remove data/secrets volumes unless you intentionally want to erase that environment.
 
-Look for the **SHARED TEST DATABASE** banner. [Database and hosting instructions](DATABASE-SETUP.md).
+You do not need to install anything on your own PC to upload the project to a compatible host or use the deployed website. See [START-HERE.md](START-HERE.md).
 
-## Norm deployment
+## Production deployment
 
-Ask whether Norm's ZIP import deploys `compose.yaml`. Its support has not been verified. If supported, this package can start both services. If Norm only builds the Dockerfile, an administrator must provide a Test PostgreSQL database and configure Database__Enabled=true, secret ConnectionStrings__AppStore, and exact TestDatabase__Name. The app initializes the dedicated Test schema and seed automatically after a valid connection.
+[DEPLOYMENT.md](DEPLOYMENT.md) describes the exact production requirements. Configure the real database, trusted auth-gate networks and the employee ID of the first Admin. Do not guess gateway networks or commit credentials. The code does not implement a second Okta/OAuth login page; it uses the gateway integration you specified.
 
-When database mode is enabled, unavailable/mismatched configuration stops initialization; saves never silently fall back to browser storage. With the database intentionally disabled, the static/browser preview remains available with a different banner.
+`compose.production.yaml` supplies a separately isolated database and mounts the Production selector. Its web port is bound to host loopback for use behind a trusted gateway. It will not start until trusted gateway networks are configured. This is deliberate, not a fallback to Test.
 
-## Preview and Test acceptance
+Live Norm infrastructure/access settings cannot be provisioned from this repository. Norm must either run the Compose services or supply a managed PostgreSQL connection. ZIP/GitHub import support and gateway policy are hosting responsibilities, not client-side configuration.
 
-[Open the static preview](https://arcelik-app-catalogue-mvp-rumeysa.slatepond16.chatgpt.site/). This host cannot run the .NET/PostgreSQL service, so this preview still saves its own data in the browser. Shared database mode is supplied in the complete ZIP for a suitable host.
-
-Use the **Test employee** selector and **Test scenarios** category. [Expected app/profile matrix](TESTING.md). The original screenshot apps are included: Perakende Akademi, Servis Akademi, Perakende Akademi AR, Okta Verify for China, BizPuan iOS/Android and SiriusTech. Their download addresses are pending, and screenshot version numbers are historical examples. Previous browser-only edits are retained in the browser but are not automatically imported into a newly seeded database.
-
-## Main files
+## Code
 
 ```text
-compose.yaml                         Application + PostgreSQL + secret initializer
-Dockerfile / .dockerignore            Tested .NET container build
-app.jsx / dist/                      React source and precompiled site
-src/AppStore.Web/
-  AppStore.Web.csproj                 .NET 10 with Npgsql 10.0.3
-  Program.cs                         Environment, routes and database bootstrap
-  Database/TestDatabase.cs            Transactional PostgreSQL repository/service
-  Database/schema.sql                Embedded v1 schema and append-only triggers
-  test-seed.json                     Synthetic Test profiles/catalogue/reference seed
-  appsettings.json                   Nonsecret PostgreSQL connection template
-  appsettings.Test.json              Synthetic Test environment defaults
-  Identity/                          Retained trusted auth-gate identity reader
-  Catalogue/                         Retained gateway-pilot read-only catalogue
-tests/                              DOM, Docker, PostgreSQL and two-client checks
-START-HERE.md / DATABASE-SETUP.md      Upload/hosting and database guide
-TESTING.md / VALIDATION.md            Profile matrix and completed checks
-docs/                               Original planning documents (planned scope)
+app.jsx / dist/                         React source and built static assets
+src/AppStore.Web/Program.cs             .NET API, JSON environment selection and hosting
+src/AppStore.Web/Identity/              Verified gateway identity; no employment claims
+src/AppStore.Web/Database/              PostgreSQL service, transactions, validation, schema
+src/AppStore.Web/catalogue-seed.json    Six user-supplied app listings and reference text
+src/AppStore.Web/appsettings*.json      Test / Production settings
+compose.yaml / compose.production.yaml Separate database/data/secret services
+Dockerfile                             .NET serves the API and React assets
 ```
 
-Your original four templates are adapted as README.md, Dockerfile, src/AppStore.Web/AppStore.Web.csproj and .dockerignore (the original file named download). No actual database contents, credentials, Git history, node_modules or tool caches are bundled.
+Node/Babel and jsdom are development/build/testing tools only. There is no Node/Python backend, extra database, cache service or additional application framework.
 
-## Development and tests
+## Persistence and access
 
-Node.js 22+:
+PostgreSQL stores a revisioned JSONB catalogue/reference/admin document, registered users, separate action logs and separate admin audit logs. Multiple categories and platforms are retained. Each mutation and its audit row commit in the same transaction; conflicting edits are rejected without discarding the draft. User events receive distinct UUID rows, including repeated actions. Log UPDATE/DELETE/TRUNCATE operations are rejected by database triggers; a database administrator can still alter schema/protections.
+
+Roles are Employee and Admin only. Production grants target users who have actually signed in. Initial Admin bootstrap applies only to explicitly configured verified employee IDs and is audited once. Country, worker type and manager fields are not read from identity and do not affect catalogue visibility. Active/archive state still controls availability.
+
+Existing PostgreSQL v0.x state and event IDs migrate into the shared `appstore` schema transactionally. Custom apps/edits are retained; obsolete generated scenario/sample entries are archived rather than deleted. Old targeting fields are removed from the current catalogue model. Browser-only data from the former demo cannot be imported automatically.
+
+## Build and test
 
 ```sh
 npm ci
@@ -74,14 +74,4 @@ npm run build
 npm test
 ```
 
-The shipped dist is precompiled. Static preview uses explicit local-demo runtime settings; the .NET host overrides runtime-config.js with its actual configured mode. Database mode uses server state and does not write shared data into localStorage.
-
-[PostgreSQL integration and two-browser test instructions](DATABASE-SETUP.md). [Completed verification and limits](VALIDATION.md).
-
-## Storage design and limits
-
-The Test MVP stores catalogue/reference/admin state in a revisioned JSONB document, with separate action and admin-audit tables. Arrays preserve multiple categories, countries, employee types and platforms. SQL row locks and revision checks prevent lost updates. Logs reject UPDATE, DELETE and TRUNCATE via triggers; a privileged database owner can still change schema/protections. This is not production tamper-proof auditing. Admins see the latest 200 events; older rows remain stored.
-
-Future work includes the real gateway attribute contract, a separate Production database/configuration, reviewed real inventory, production identity/role assignment, backup/restore ownership and release validation. No employee creation, Super Admin role, approval queue or binary hosting is included.
-
-Database connection discovery for Norm now uses the template in `src/AppStore.Web/appsettings.json`. Test enables the shared database via `appsettings.Test.json`; Production has a separate empty override. Passwords remain in mounted secrets or platform secret settings. See DATABASE-SETUP.md.
+[TESTING.md](TESTING.md) describes the real PostgreSQL integration, two-client workflow and upgrade checks. [VALIDATION.md](VALIDATION.md) records verification and remaining live-host limitations. Historical planning attachments under docs/ describe older requirements; this README and the latest user requirements supersede their employee-targeting rules.

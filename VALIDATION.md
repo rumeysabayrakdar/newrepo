@@ -1,26 +1,25 @@
-# Validation — shared PostgreSQL Test package
+# Validation — real project 1.0
+
+Validated on November 13, 2026 against isolated, running PostgreSQL 17 and .NET 10 containers in the development workspace.
 
 ## Passed
 
-- Frontend compilation and the full existing catalogue/admin, profile matrix and auth-gate UI suites.
-- Shared-mode DOM checks: server state, known Test-profile switching, server-derived admin state, no localStorage overwrite.
-- C# PostgreSQL backend compiled in the .NET 10 Alpine container with Npgsql 10.0.3; optional build CA secret used only in the build stage.
-- Real PostgreSQL 17 Compose stack: private database service, generated secret file, persistent volumes, automatic schema/seed and startup health ordering.
-- API checks across separate employee clients: country/type/manager filtering; employee denial of admin writes; create/edit/archive/restore; category operations; translations; admin grants/revocations and last-admin protection; revision conflict; safe links and ineligible direct-link denial.
-- Repeated searches, opens and admin changes each get separate UUID records. SQL triggers rejected UPDATE, DELETE and TRUNCATE attempts against event history.
-- App restart retained saved apps, translations and all event IDs. Initialization did not overwrite stored data.
-- Live two-browser-DOM workflow: one browser's save appeared in another; a stale open editor was rejected while preserving its draft and the newer database value.
-- Wrong expected Test database name and Production startup were blocked before Test seeding.
-- ZIP required files and integrity verified; database contents/actual secrets and intermediate tools excluded.
+- React compilation and current UI tests (`npm run build`, `npm test`).
+- .NET Release publish using the official Alpine .NET SDK/runtime and Npgsql 10.0.3.
+- Separate Test and Production-mode PostgreSQL instances, generated secret files and persistent volumes; both `/healthz` endpoints report a connected database.
+- JSON-only environment selection: contrary DOTNET_ENVIRONMENT, ASPNETCORE_ENVIRONMENT and AppStore__Environment values did not change the appsettings-selected environment.
+- Real API integration (`tests/integration.cjs`): shared catalogue writes; admin permissions; categories, translations and roles; last-admin protection; revision conflicts; archive/restore; stored HTTPS links; repeated events; SQL append-only protections; data and event persistence after application restart.
+- Production-mode identity tests used a simulated trusted gateway, not a live Okta tenant. Missing identity was rejected, Test identities were unavailable, verified identities were persisted, and users saw the same active catalogue without country, collar or manager claims.
+- Live React DOM workflow (`tests/workflow.cjs`): one client's save appeared in another; stale saves were rejected while retaining the draft.
+- Legacy database migration (`tests/migration.cjs`): custom catalogue data and event IDs survived; obsolete targeting fields were removed and scenario entries archived.
+- Environment isolation (`tests/isolation.cjs`): Production refused a Test-marked database even when its configured expected name matched; the Test catalogue revision remained unchanged.
 
-Tests are in tests/postgres-integration.py, tests/postgres-ui.cjs, tests/database-guards.py and the npm test suite. They use isolated synthetic Compose services, not Norm's project or real employee data.
+## Practical limits
 
-## Limits
+These running databases belong to this development workspace. This does not provision a database in Norm or verify Norm's GitHub importer, live routing or live Okta configuration. Hosting must run the supplied services or provide PostgreSQL and its secret connection settings. Production additionally needs the actual trusted gateway network ranges and initial administrator employee IDs.
 
-Norm's ZIP/GitHub importer has not been verified to run compose.yaml or provision its services. This ZIP cannot grant the importing platform infrastructure permissions. Dockerfile-only hosting requires a separately configured PostgreSQL database.
+The historical Sites preview is an older static demo, not this .NET/PostgreSQL application. Visual browser/mobile QA was not available; current frontend checks use React DOM tests and live HTTP services.
 
-The published Codex static preview remains browser-local. Shared PostgreSQL mode runs from the .NET package on a suitable host. Database schema v1 uses one revisioned JSONB catalogue/reference/admin document plus separate append-only log tables, rather than normalized per-entity tables. Database owners can change trigger protections. Production, real gateway attributes/admin bootstrap, backups/retention and full visual/mobile QA remain pending.
+Catalogue data currently uses one revisioned JSONB document plus separate persistent user and append-only event tables. Schema changes and initial seed are transactional; initialization does not replace existing catalogue data. PostgreSQL owners can alter trigger protections. Platform backups, retention and production operations remain the hosting operator's responsibility.
 
-## Appsettings discovery update
-
-Parsed all appsettings files and validated Compose. The sole committed connection template is now in appsettings.json with Test-only activation/name settings; Compose supplies the mounted password reference without overriding the connection. Verified the Test app against real PostgreSQL using these JSON defaults: shared reads/writes, targeting, admin/reference changes, conflict checks, immutable events and restart persistence passed. Production has an empty connection override and no committed credentials. The standalone synthetic-container check explicitly disables the database when testing browser-only mode. Norm replacement execution itself remains unverified.
+Earlier test files are preserved for reference; `tests/README.md` identifies the current suites.

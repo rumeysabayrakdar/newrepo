@@ -1,15 +1,9 @@
-# Put this project on GitHub
+# Upload or deploy
 
-1. Download and unzip the archive.
-2. On GitHub, create a repository called `arcelik-app-store` (Private is recommended).
-3. Choose **uploading an existing file** or **Add file → Upload files**.
-4. Drag in the contents of the extracted `arcelik-mvp` folder, including the `src` and `dist` folders. Upload the extracted files, not the ZIP itself.
-5. Select **Commit changes**.
+The maintained source is https://github.com/rumeysabayrakdar/newrepo on main. The complete ZIP contains the same project files without Git history, generated database contents, node_modules or credentials.
 
-The repo root should contain README.md, Dockerfile, app.jsx, package.json, src/ and dist/. The adapted .csproj is in src/AppStore.Web/. The uploaded `download` file was a Docker ignore file and is correctly named `.dockerignore` here. Hidden files may be hidden in your file picker; include them where possible. No installation is required to upload through GitHub's website.
+For GitHub browser upload, unzip and upload the contents of the arcelik-app-store folder into the repository root. Dockerfile, compose.yaml, app.jsx, package.json, dist and src must remain at the root/paths supplied. For Norm ZIP import, upload the ZIP itself according to its importer instructions.
 
-Your existing hosted demo continues to work. GitHub stores the code; uploading does not automatically deploy it. This package is not a completed production backend.
+Norm must either launch the included Compose services or provide a PostgreSQL connection. A blank checkout/source-path import failure happens before application startup and cannot be repaired by application code; the repository root build context is a dot (.). Ask platform support to fix that importer path if it persists.
 
-The .NET container now defaults to synthetic Test mode. See TESTING.md. The retained Development auth-gate integration is documented in OKTA-SETUP.md. The static Codex preview remains in explicit Demo mode; deploying to Norm does not copy that preview identity.
-
-The latest ZIP includes compose.yaml and the PostgreSQL backend. Upload those files and the full src/AppStore.Web/Database folder too. Never upload Docker volume contents or actual database passwords. Norm's ability to launch Compose services from a GitHub/ZIP import must be checked with its platform team; Dockerfile-only hosting needs a separately provided PostgreSQL connection.
+Production sign-in uses Norm's existing Okta/auth-gate. It is not established by uploading files alone. Follow START-HERE and DEPLOYMENT for the Test/Production settings.

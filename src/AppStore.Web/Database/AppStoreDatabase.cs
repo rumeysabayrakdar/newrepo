@@ -61,6 +61,27 @@ public sealed class AppStoreDatabase : IAsyncDisposable
         await tx.CommitAsync();
         await UpgradeLegacy();
     }
+    public async Task<byte[]> ExportBackup(AppUser user)
+    {
+        await using var connection = await source.OpenConnectionAsync();
+        await using var tx = await connection.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead);
+        await Exec(connection, tx, "SET TRANSACTION READ ONLY");
+        var (state, _) = await Load(connection, tx, false);
+        if (!Strings(state["admins"]).Contains(user.Id)) throw Error(403, "admin_required", "Only an Admin can download a backup.");
+        var tables = new JsonObject(); var counts = new JsonObject();
+        // Fixed table names only; every row is included, not the 200-row UI history.
+        foreach (var table in new[] { "metadata", "catalogue_state", "users", "action_logs", "admin_audit_logs" })
+        {
+            await using var command = new NpgsqlCommand($"SELECT COALESCE(jsonb_agg(to_jsonb(t)), '[]'::jsonb)::text FROM appstore.{table} t", connection, tx);
+            var rows = JsonNode.Parse((string)(await command.ExecuteScalarAsync())!)!.AsArray();
+            counts[table] = rows.Count; tables[table] = rows;
+        }
+        var backup = new JsonObject { ["format"] = "arcelik-appstore-backup", ["version"] = 1,
+            ["createdAt"] = DateTimeOffset.UtcNow.ToString("O"), ["environment"] = environment,
+            ["schemaVersion"] = "2", ["counts"] = counts, ["tables"] = tables };
+        await tx.CommitAsync();
+        return System.Text.Encoding.UTF8.GetBytes(backup.ToJsonString());
+    }
     public AppUser Person(HttpContext context)
     {
         var values = context.Request.Headers["X-Test-User"];

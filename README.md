@@ -58,6 +58,10 @@ Dockerfile                             .NET serves the API and React assets
 
 Node/Babel and jsdom are development/build/testing tools only. There is no Node/Python backend, extra database, cache service or additional application framework.
 
+## Application backup
+
+Admins can download all application data using Administration → Backup. See [BACKUP.md](BACKUP.md) for contents, privacy and recovery limitations. This works independently of the platform pg_dump job.
+
 ## Persistence and access
 
 PostgreSQL stores a revisioned JSONB catalogue/reference/admin document, registered users, separate action logs and separate admin audit logs. Multiple categories and platforms are retained. Each mutation and its audit row commit in the same transaction; conflicting edits are rejected without discarding the draft. User events receive distinct UUID rows, including repeated actions. Log UPDATE/DELETE/TRUNCATE operations are rejected by database triggers; a database administrator can still alter schema/protections.

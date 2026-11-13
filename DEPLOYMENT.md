@@ -40,6 +40,10 @@ The schema is appstore: catalogue_state (revisioned JSONB), users (signed-in ide
 
 Use your platform's PostgreSQL backup/restore tooling. Named volumes preserve data across ordinary Compose down/up, but down --volumes intentionally deletes it. Review backup ownership, retention and monitored storage before company-wide rollout. Database owners can alter event-protection triggers, so these are application-level append-only records rather than tamper-proof records against a DBA.
 
+## Application data export
+
+POST /api/admin/backup returns a dated JSON attachment to authorized Admins. It uses the configured public-origin protection and a consistent read-only PostgreSQL snapshot; all application rows are included. See BACKUP.md. Keep platform full-database backup operations separate.
+
 ## API
 
 - GET /runtime-config.js: selected environment and Test accounts only in Test.

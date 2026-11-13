@@ -348,6 +348,7 @@ function Editor({
   }, busy ? 'Saving…' : 'Save application')))));
 }
 function Application() {
+  const [backupBusy, BackupBusy] = useState(false);
   const [testUser, TU] = useState(runtime?.testUsers?.[0]?.id || ''),
     [data, D] = useState(null),
     [error, E] = useState(''),
@@ -464,6 +465,28 @@ function Application() {
       return await change(...args);
     } catch (e) {
       Toast(e.message);
+    }
+  }
+  async function backup() {
+    BackupBusy(true);
+    try {
+      const snapshot = await api('/api/admin/backup', {});
+      if (snapshot.format !== 'arcelik-appstore-backup' || snapshot.version !== 1) throw Error('The backup response was invalid.');
+      const url = URL.createObjectURL(new Blob([JSON.stringify(snapshot)], {
+        type: 'application/json'
+      }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'appstore-' + runtime.environment.toLowerCase() + '-backup-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      Toast('Backup download started. Keep the file in a private place.');
+    } catch (e) {
+      Toast(e.message);
+    } finally {
+      BackupBusy(false);
     }
   }
   async function search(e) {
@@ -733,14 +756,22 @@ function Application() {
     onClick: add
   }, "+ Add application")), React.createElement("div", {
     className: "adminnav"
-  }, ['Applications', 'Categories', 'Translations', 'Admin access', 'Activity'].map(v => React.createElement("button", {
+  }, ['Applications', 'Categories', 'Translations', 'Admin access', 'Activity', 'Backup'].map(v => React.createElement("button", {
     key: v,
     className: 'chip ' + (adminTab === v ? 'active' : ''),
     onClick: () => {
       AT(v);
       if (v === 'Activity') load();
     }
-  }, v))), adminTab === 'Applications' && React.createElement(React.Fragment, null, React.createElement("input", {
+  }, v))), adminTab === 'Backup' && React.createElement("section", {
+    className: "panel"
+  }, React.createElement("h3", null, "Download an application backup"), React.createElement("p", null, "Save a copy of the catalogue, settings, users and complete activity history."), React.createElement("p", {
+    className: "info"
+  }, "The file contains user information. Keep it private. It includes saved data and asset links; linked files, passwords and hosting settings are not included. Restoring requires an administrator; this does not replace the platform\u2019s full database backup."), React.createElement("button", {
+    className: "btn primary",
+    disabled: backupBusy,
+    onClick: backup
+  }, backupBusy ? 'Preparing backup…' : 'Download backup')), adminTab === 'Applications' && React.createElement(React.Fragment, null, React.createElement("input", {
     className: "textinput",
     "aria-label": "Find an application",
     placeholder: "Find an application\u2026",

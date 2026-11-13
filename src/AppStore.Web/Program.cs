@@ -102,6 +102,8 @@ api.MapGet("/apps/{id}",async(string id,HttpContext c,AppStoreDatabase db)=>
     var state=await db.Read(User(c));var found=state["apps"]!.AsArray().OfType<JsonObject>().SingleOrDefault(a=>a["id"]!.GetValue<string>()==id&&AppStoreDatabase.Eligible(a,User(c)));
     return found is null?Results.NotFound():Results.Json(found);
 });
+api.MapPost("/admin/backup",async(HttpContext c,AppStoreDatabase db)=>
+    Results.File(await db.ExportBackup(User(c)), "application/json", $"appstore-{environment.ToLowerInvariant()}-backup-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}.json"));
 api.MapPost("/admin/commands",async(HttpContext c,AppStoreDatabase db,JsonObject command)=>Results.Json(await db.Change(User(c),command,c.TraceIdentifier)));
 api.MapPost("/events/search",async(HttpContext c,AppStoreDatabase db,SearchEvent body)=>{await db.Event(User(c),"Search",body.Term??"",c.TraceIdentifier);return Results.NoContent();});
 foreach(var collection in new[]{"links","documents"})

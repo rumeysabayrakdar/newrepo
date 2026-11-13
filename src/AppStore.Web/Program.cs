@@ -22,6 +22,7 @@ if (environment == "Production")
     if (cidrs.Length == 0 || cidrs.Any(c => !System.Net.IPNetwork.TryParse(c, out var n) || n.PrefixLength == 0))
         throw new InvalidOperationException("Configure the trusted auth-gate source networks in appsettings.Production.json or secure hosting settings before Production starts.");
 }
+var originPolicy = new RequestOriginPolicy(builder.Configuration["Hosting:TrustedPublicOrigin"]);
 builder.Services.AddSingleton<GateIdentityService>();
 builder.Services.AddSingleton<AppStoreDatabase>();
 var app = builder.Build();
@@ -59,7 +60,8 @@ api.AddEndpointFilter(async(invocation,next)=>
     {
         if(!context.Request.HasJsonContentType())return Results.StatusCode(415);
         var origin=context.Request.Headers.Origin.ToString();
-        if((!string.IsNullOrEmpty(origin)&&(!Uri.TryCreate(origin,UriKind.Absolute,out var uri)||uri.Authority!=context.Request.Host.Value))||context.Request.Headers["Sec-Fetch-Site"]=="cross-site")return Results.StatusCode(403);
+        if(!originPolicy.Allows(origin,context.Request.Headers["Sec-Fetch-Site"].ToString(),context.Request.Scheme,context.Request.Host.ToString()))
+            throw new GateException(403,"origin_not_allowed","This save was blocked because the website address does not match the configured public address. Please contact support.");
     }
     AppUser user;
     if(environment=="Test")

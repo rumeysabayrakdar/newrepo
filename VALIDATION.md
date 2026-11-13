@@ -14,6 +14,10 @@ Validated on November 13, 2026 against isolated, running PostgreSQL 17 and .NET 
 - Legacy database migration (`tests/migration.cjs`): custom catalogue data and event IDs survived; obsolete targeting fields were removed and scenario entries archived.
 - Environment isolation (`tests/isolation.cjs`): Production refused a Test-marked database even when its configured expected name matched; the Test catalogue revision remained unchanged.
 
+## Gateway-origin fix
+
+The save check now uses Hosting:TrustedPublicOrigin when configured, so a public browser Origin can differ from the backend Host. The exact configured origin is required; hostile origins and cross-site requests remain rejected. The Release publish and current React UI tests passed. tests/origin-gateway.cjs passed against the running .NET/PostgreSQL Test service: public-origin/internal-Host save, fresh-read persistence, hostile-origin rejection without writes and restoration of the test app. This change must be redeployed in Norm before it affects the live site.
+
 ## Practical limits
 
 These running databases belong to this development workspace. This does not provision a database in Norm or verify Norm's GitHub importer, live routing or live Okta configuration. Hosting must run the supplied services or provide PostgreSQL and its secret connection settings. Production additionally needs the actual trusted gateway network ranges and initial administrator employee IDs.

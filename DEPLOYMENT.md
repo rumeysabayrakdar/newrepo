@@ -28,6 +28,10 @@ Production identity contract:
 
 No country, worker classification or manager header is read. All signed-in users see the same active/unarchived catalogue; manual filters are user choices. No Test account header/query can authenticate a Production request. No tokens/passwords are handled by the frontend.
 
+## Public website address behind a gateway
+
+Set Hosting:TrustedPublicOrigin to the exact public website origin, currently https://final.norm.ar.arcelik. Browser mutation requests are compared to that configured scheme, hostname and port, independently of the internal request Host. Other origins and Sec-Fetch-Site: cross-site are rejected. Forwarded host headers do not extend the allow-list. When no public origin is configured, direct-host deployments retain same-origin validation.
+
 ## Health, data and recovery
 
 GET /healthz performs an actual PostgreSQL query and returns 503 on database failure. There is no browser storage/file fallback. If PostgreSQL is unavailable at startup, the app stops with a configuration message. Startup diagnostics log exception type/source location and PostgreSQL error code, not secrets or connection strings.

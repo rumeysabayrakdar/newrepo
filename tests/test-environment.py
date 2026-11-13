@@ -3,7 +3,7 @@ import json,subprocess,sys,time
 D=['docker','--host=unix:///var/run/docker.sock'];image=sys.argv[1] if len(sys.argv)>1 else 'arcelik-appstore:test-profiles';name='arcelik-synthetic-test-check'
 def run(args):return subprocess.run(D+args,text=True,capture_output=True)
 try:
- p=run(['run','-d','--name',name,'-e','ASPNETCORE_ENVIRONMENT=Test','-e','DOTNET_ENVIRONMENT=Test','-e','AppStore__Mode=AuthGate','-e','AppStore__EnableDemo=false',image]);assert p.returncode==0,p.stderr
+ p=run(['run','-d','--name',name,'-e','ASPNETCORE_ENVIRONMENT=Test','-e','DOTNET_ENVIRONMENT=Test','-e','AppStore__Mode=AuthGate','-e','AppStore__EnableDemo=false','-e','Database__Enabled=false',image]);assert p.returncode==0,p.stderr
  for _ in range(50):
   p=run(['exec',name,'wget','-Y','off','-qO-','http://127.0.0.1:8080/healthz'])
   if p.returncode==0:break

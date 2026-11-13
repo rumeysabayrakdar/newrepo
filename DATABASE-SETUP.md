@@ -65,3 +65,11 @@ python tests/database-guards.py arcelik-appstore:postgres-test arcelik-package-d
 `postgres-integration.py` writes synthetic test records, invokes an app restart and checks trigger protections. Use it only on its isolated disposable Test project. Do not point it at real employee data. Local proxy/CA environments can pass the Dockerfile's optional BuildKit `proxy_ca` secret, using a trusted CA bundle; normal public-network builds need no extra file.
 
 Production connection, migrations beyond v1, employee-data/gateway contract, backup/restore ownership and full production release remain future work. Norm's support for automatically deploying Compose from a ZIP has not been verified by this package.
+
+## Norm appsettings connection discovery
+
+The sole committed connection template now lives at `src/AppStore.Web/appsettings.json` → `ConnectionStrings:AppStore`. It contains only the nonsecret Compose Test host, database and username; there is no password. `appsettings.Test.json` enables database mode and declares the expected Test database name. Compose no longer duplicates or overrides those values; it supplies only the generated password-file reference and environment selection.
+
+An explicit safe `appsettings.Production.json` clears the Test connection and disables the database/demo defaults. It contains no secrets and is included in the image. Production startup is still blocked by the application.
+
+Refresh/reimport the latest GitHub commit in Norm before approving its appsettings option. The detected connection should now be in appsettings.json rather than compose.yaml. Norm must inject its real managed connection/password at deployment or through secret environment settings, never by committing credentials to GitHub. If its replacement changes the Test database name, also configure `TestDatabase__Name` to that exact name; the mismatch guard intentionally remains active. Norm's checkbox alone does not establish that it has provisioned a database.

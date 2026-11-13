@@ -20,3 +20,7 @@ Tests are in tests/postgres-integration.py, tests/postgres-ui.cjs, tests/databas
 Norm's ZIP/GitHub importer has not been verified to run compose.yaml or provision its services. This ZIP cannot grant the importing platform infrastructure permissions. Dockerfile-only hosting requires a separately configured PostgreSQL database.
 
 The published Codex static preview remains browser-local. Shared PostgreSQL mode runs from the .NET package on a suitable host. Database schema v1 uses one revisioned JSONB catalogue/reference/admin document plus separate append-only log tables, rather than normalized per-entity tables. Database owners can change trigger protections. Production, real gateway attributes/admin bootstrap, backups/retention and full visual/mobile QA remain pending.
+
+## Appsettings discovery update
+
+Parsed all appsettings files and validated Compose. The sole committed connection template is now in appsettings.json with Test-only activation/name settings; Compose supplies the mounted password reference without overriding the connection. Verified the Test app against real PostgreSQL using these JSON defaults: shared reads/writes, targeting, admin/reference changes, conflict checks, immutable events and restart persistence passed. Production has an empty connection override and no committed credentials. The standalone synthetic-container check explicitly disables the database when testing browser-only mode. Norm replacement execution itself remains unverified.

@@ -52,7 +52,7 @@ src/AppStore.Web/
   Database/TestDatabase.cs            Transactional PostgreSQL repository/service
   Database/schema.sql                Embedded v1 schema and append-only triggers
   test-seed.json                     Synthetic Test profiles/catalogue/reference seed
-  appsettings.json                   Empty optional managed-database settings
+  appsettings.json                   Nonsecret PostgreSQL connection template
   appsettings.Test.json              Synthetic Test environment defaults
   Identity/                          Retained trusted auth-gate identity reader
   Catalogue/                         Retained gateway-pilot read-only catalogue
@@ -83,3 +83,5 @@ The shipped dist is precompiled. Static preview uses explicit local-demo runtime
 The Test MVP stores catalogue/reference/admin state in a revisioned JSONB document, with separate action and admin-audit tables. Arrays preserve multiple categories, countries, employee types and platforms. SQL row locks and revision checks prevent lost updates. Logs reject UPDATE, DELETE and TRUNCATE via triggers; a privileged database owner can still change schema/protections. This is not production tamper-proof auditing. Admins see the latest 200 events; older rows remain stored.
 
 Future work includes the real gateway attribute contract, a separate Production database/configuration, reviewed real inventory, production identity/role assignment, backup/restore ownership and release validation. No employee creation, Super Admin role, approval queue or binary hosting is included.
+
+Database connection discovery for Norm now uses the template in `src/AppStore.Web/appsettings.json`. Test enables the shared database via `appsettings.Test.json`; Production has a separate empty override. Passwords remain in mounted secrets or platform secret settings. See DATABASE-SETUP.md.

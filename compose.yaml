@@ -44,10 +44,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Test
       DOTNET_ENVIRONMENT: Test
-      Database__Enabled: "true"
       Database__PasswordFile: /run/appstore-secrets/postgres-password
-      ConnectionStrings__AppStore: Host=postgres;Port=5432;Database=arcelik_appstore_test;Username=appstore_test
-      TestDatabase__Name: arcelik_appstore_test
     volumes:
       - test-secrets:/run/appstore-secrets:ro
 volumes:

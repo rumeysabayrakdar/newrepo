@@ -18,9 +18,9 @@ Validated on November 13, 2026 against isolated, running PostgreSQL 17 and .NET 
 
 The save check now uses Hosting:TrustedPublicOrigin when configured, so a public browser Origin can differ from the backend Host. The exact configured origin is required; hostile origins and cross-site requests remain rejected. The Release publish and current React UI tests passed. tests/origin-gateway.cjs passed against the running .NET/PostgreSQL Test service: public-origin/internal-Host save, fresh-read persistence, hostile-origin rejection without writes and restoration of the test app. This change must be redeployed in Norm before it affects the live site.
 
-## Application backup export
+## Application translations
 
-Release publish and React UI tests passed. tests/backup.cjs verified protected Admin-only download, all five tables and more than 200 events, no catalogue revision change, and restoration of every exported row into a new isolated PostgreSQL database. The live Norm backup job and live deployment of this feature have not been verified. See BACKUP.md for limitations.
+Release publish and existing React UI suite passed. tests/app-translations.cjs passed against live .NET/PostgreSQL: EN/TR draft switching and private preview, saving both dictionaries, fresh-client reads, localized cards/details/search, original and whitespace fallback, rejection of unsupported languages/invalid types/lengths, and Employee write denial. No destructive database migration is required; optional translations are stored with existing JSONB catalogue data. The declined application-backup feature is excluded from this update. Norm deployment and visual browser QA remain unverified.
 
 ## Practical limits
 

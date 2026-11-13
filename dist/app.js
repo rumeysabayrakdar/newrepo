@@ -14,6 +14,14 @@ const safeUrl = url => {
     return false;
   }
 };
+const contentFields = [['name', 'Application name', 80], ['shortDescription', 'Short description', 500], ['description', 'Description', 10000]];
+function localizedApp(app, language) {
+  const translated = app.translations?.[language] || {};
+  return {
+    ...app,
+    ...Object.fromEntries(contentFields.map(([field]) => [field, translated[field]?.trim() || app[field]]))
+  };
+}
 function Icon({
   app
 }) {
@@ -128,8 +136,10 @@ function Editor({
   app,
   categories,
   onCancel,
-  onSave
+  onSave,
+  language
 }) {
+  const [contentLanguage, ContentLanguage] = useState(language || 'en');
   const [a, A] = useState(() => structuredClone(app)),
     [error, E] = useState(''),
     [busy, B] = useState(false);
@@ -137,6 +147,13 @@ function Editor({
     ...p,
     [k]: v
   }));
+  const translate = (field, value) => set('translations', {
+    ...(a.translations || {}),
+    [contentLanguage]: {
+      ...(a.translations?.[contentLanguage] || {}),
+      [field]: value
+    }
+  });
   const item = (kind, i, k, v) => set(kind, a[kind].map((x, j) => i === j ? {
     ...x,
     [k]: v,
@@ -199,7 +216,36 @@ function Editor({
     maxLength: "10000",
     value: a.description,
     onChange: e => set('description', e.target.value)
-  })), React.createElement("label", {
+  })), React.createElement("h3", {
+    className: "subheading"
+  }, "Application translations"), React.createElement("p", {
+    className: "info"
+  }, "The fields above are the original content. Empty translations use the original text. Preview follows the content language below."), React.createElement("label", {
+    className: "field"
+  }, "Content language", React.createElement("select", {
+    "aria-label": "Application content language",
+    value: contentLanguage,
+    onChange: e => ContentLanguage(e.target.value)
+  }, React.createElement("option", {
+    value: "en"
+  }, "English (EN)"), React.createElement("option", {
+    value: "tr"
+  }, "T\xFCrk\xE7e (TR)"))), contentFields.map(([field, label, max]) => React.createElement("label", {
+    className: "field",
+    key: 'translation-' + field
+  }, label, " \xB7 ", contentLanguage.toUpperCase(), field === 'name' ? React.createElement("input", {
+    "aria-label": label + ' translation',
+    maxLength: max,
+    value: a.translations?.[contentLanguage]?.[field] || '',
+    placeholder: 'Fallback: ' + a[field],
+    onChange: e => translate(field, e.target.value)
+  }) : React.createElement("textarea", {
+    "aria-label": label + ' translation',
+    maxLength: max,
+    value: a.translations?.[contentLanguage]?.[field] || '',
+    placeholder: 'Fallback: ' + a[field],
+    onChange: e => translate(field, e.target.value)
+  }))), React.createElement("label", {
     className: "field"
   }, "Catalogue tab", React.createElement("select", {
     value: a.tab,
@@ -329,7 +375,7 @@ function Editor({
   }, "+ Add screenshot")), React.createElement("div", null, React.createElement("div", {
     className: "previewlabel"
   }, "Private preview \xB7 unsaved"), React.createElement(Detail, {
-    app: a,
+    app: localizedApp(a, contentLanguage),
     preview: true
   }))), React.createElement("div", {
     className: "modalfoot"
@@ -348,7 +394,6 @@ function Editor({
   }, busy ? 'Saving…' : 'Save application')))));
 }
 function Application() {
-  const [backupBusy, BackupBusy] = useState(false);
   const [testUser, TU] = useState(runtime?.testUsers?.[0]?.id || ''),
     [data, D] = useState(null),
     [error, E] = useState(''),
@@ -467,28 +512,6 @@ function Application() {
       Toast(e.message);
     }
   }
-  async function backup() {
-    BackupBusy(true);
-    try {
-      const snapshot = await api('/api/admin/backup', {});
-      if (snapshot.format !== 'arcelik-appstore-backup' || snapshot.version !== 1) throw Error('The backup response was invalid.');
-      const url = URL.createObjectURL(new Blob([JSON.stringify(snapshot)], {
-        type: 'application/json'
-      }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'appstore-' + runtime.environment.toLowerCase() + '-backup-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      Toast('Backup download started. Keep the file in a private place.');
-    } catch (e) {
-      Toast(e.message);
-    } finally {
-      BackupBusy(false);
-    }
-  }
   async function search(e) {
     e.preventDefault();
     try {
@@ -580,7 +603,7 @@ function Application() {
       ...data.translations.en,
       ...data.translations[lang]
     },
-    active = data.apps.filter(a => a.isActive && !a.isArchived),
+    active = data.apps.filter(a => a.isActive && !a.isArchived).map(a => localizedApp(a, lang)),
     apps = active.filter(a => a.tab === tab && (category === 'All apps' || a.categories.includes(category)) && (platform === 'All platforms' || a.platforms.includes(platform)) && (!term || (a.name + ' ' + a.shortDescription + ' ' + a.description).toLowerCase().includes(term.toLowerCase()))),
     selected = active.find(a => a.id === detail),
     cats = data.categories.filter(c => active.some(a => a.tab === tab && a.categories.includes(c)));
@@ -756,22 +779,14 @@ function Application() {
     onClick: add
   }, "+ Add application")), React.createElement("div", {
     className: "adminnav"
-  }, ['Applications', 'Categories', 'Translations', 'Admin access', 'Activity', 'Backup'].map(v => React.createElement("button", {
+  }, ['Applications', 'Categories', 'Translations', 'Admin access', 'Activity'].map(v => React.createElement("button", {
     key: v,
     className: 'chip ' + (adminTab === v ? 'active' : ''),
     onClick: () => {
       AT(v);
       if (v === 'Activity') load();
     }
-  }, v))), adminTab === 'Backup' && React.createElement("section", {
-    className: "panel"
-  }, React.createElement("h3", null, "Download an application backup"), React.createElement("p", null, "Save a copy of the catalogue, settings, users and complete activity history."), React.createElement("p", {
-    className: "info"
-  }, "The file contains user information. Keep it private. It includes saved data and asset links; linked files, passwords and hosting settings are not included. Restoring requires an administrator; this does not replace the platform\u2019s full database backup."), React.createElement("button", {
-    className: "btn primary",
-    disabled: backupBusy,
-    onClick: backup
-  }, backupBusy ? 'Preparing backup…' : 'Download backup')), adminTab === 'Applications' && React.createElement(React.Fragment, null, React.createElement("input", {
+  }, v))), adminTab === 'Applications' && React.createElement(React.Fragment, null, React.createElement("input", {
     className: "textinput",
     "aria-label": "Find an application",
     placeholder: "Find an application\u2026",
@@ -782,13 +797,13 @@ function Application() {
     style: {
       marginTop: 15
     }
-  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Application"), React.createElement("th", null, "Platforms"), React.createElement("th", null, "Status"), React.createElement("th", null, "Actions"))), React.createElement("tbody", null, data.apps.filter(a => a.name.toLowerCase().includes(adminSearch.toLowerCase())).map(a => React.createElement("tr", {
+  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Application"), React.createElement("th", null, "Platforms"), React.createElement("th", null, "Status"), React.createElement("th", null, "Actions"))), React.createElement("tbody", null, data.apps.filter(a => localizedApp(a, lang).name.toLowerCase().includes(adminSearch.toLowerCase())).map(a => React.createElement("tr", {
     key: a.id
   }, React.createElement("td", null, React.createElement("div", {
     className: "appcell"
   }, React.createElement(Icon, {
     app: a
-  }), React.createElement("b", null, a.name))), React.createElement("td", null, a.platforms.join(', ')), React.createElement("td", null, React.createElement("span", {
+  }), React.createElement("b", null, localizedApp(a, lang).name))), React.createElement("td", null, a.platforms.join(', ')), React.createElement("td", null, React.createElement("span", {
     className: 'status ' + (!a.isActive || a.isArchived ? 'off' : '')
   }, a.isArchived ? 'Archived' : a.isActive ? 'Active' : 'Inactive')), React.createElement("td", null, React.createElement("div", {
     className: "rowactions"
@@ -905,6 +920,7 @@ function Application() {
   }, JSON.stringify(e, null, 2)))))), !data.events.length && React.createElement("tr", null, React.createElement("td", {
     colSpan: "5"
   }, "No activity yet.")))))))), React.createElement("footer", null, React.createElement("span", null, React.createElement("b", null, "ar\xE7elik"), " \xB7 App Store"), React.createElement("span", null, error ? 'Connection interrupted' : 'Connected', " \xB7 ", runtime.environment), React.createElement("span", null, "Application catalogue")), editing && admin && React.createElement(Editor, {
+    language: lang,
     app: editing,
     categories: data.categories,
     onCancel: () => Edit(null),

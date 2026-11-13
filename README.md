@@ -8,6 +8,10 @@ Everyone sees the same active, unarchived applications. Browse Developed by Arç
 
 The initial inventory contains the six applications you supplied. Download addresses remain pending until an Admin enters verified URLs. No imaginary download destinations are seeded.
 
+## Application content languages
+
+Edit an application and use Application translations → Content language to enter English (en) and Turkish (tr) names, summaries and descriptions. Original fields remain the fallback for each empty translation. Both languages save together in PostgreSQL. The header language selector updates cards, details and catalogue search; Admin search uses the selected name. Private preview follows the editor content language. Version, platforms and destinations stay shared. No automatic translation is performed and existing content is not rewritten.
+
 ## Test and Production
 
 The **only environment switch** is `AppStore:Environment` in `src/AppStore.Web/appsettings.json`:
@@ -57,10 +61,6 @@ Dockerfile                             .NET serves the API and React assets
 ```
 
 Node/Babel and jsdom are development/build/testing tools only. There is no Node/Python backend, extra database, cache service or additional application framework.
-
-## Application backup
-
-Admins can download all application data using Administration → Backup. See [BACKUP.md](BACKUP.md) for contents, privacy and recovery limitations. This works independently of the platform pg_dump job.
 
 ## Persistence and access
 

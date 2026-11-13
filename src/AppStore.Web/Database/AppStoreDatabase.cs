@@ -61,27 +61,6 @@ public sealed class AppStoreDatabase : IAsyncDisposable
         await tx.CommitAsync();
         await UpgradeLegacy();
     }
-    public async Task<byte[]> ExportBackup(AppUser user)
-    {
-        await using var connection = await source.OpenConnectionAsync();
-        await using var tx = await connection.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead);
-        await Exec(connection, tx, "SET TRANSACTION READ ONLY");
-        var (state, _) = await Load(connection, tx, false);
-        if (!Strings(state["admins"]).Contains(user.Id)) throw Error(403, "admin_required", "Only an Admin can download a backup.");
-        var tables = new JsonObject(); var counts = new JsonObject();
-        // Fixed table names only; every row is included, not the 200-row UI history.
-        foreach (var table in new[] { "metadata", "catalogue_state", "users", "action_logs", "admin_audit_logs" })
-        {
-            await using var command = new NpgsqlCommand($"SELECT COALESCE(jsonb_agg(to_jsonb(t)), '[]'::jsonb)::text FROM appstore.{table} t", connection, tx);
-            var rows = JsonNode.Parse((string)(await command.ExecuteScalarAsync())!)!.AsArray();
-            counts[table] = rows.Count; tables[table] = rows;
-        }
-        var backup = new JsonObject { ["format"] = "arcelik-appstore-backup", ["version"] = 1,
-            ["createdAt"] = DateTimeOffset.UtcNow.ToString("O"), ["environment"] = environment,
-            ["schemaVersion"] = "2", ["counts"] = counts, ["tables"] = tables };
-        await tx.CommitAsync();
-        return System.Text.Encoding.UTF8.GetBytes(backup.ToJsonString());
-    }
     public AppUser Person(HttpContext context)
     {
         var values = context.Request.Headers["X-Test-User"];
@@ -305,6 +284,22 @@ public sealed class AppStoreDatabase : IAsyncDisposable
         foreach (var field in new[] { "name", "shortDescription", "description", "version" })
             if (string.IsNullOrWhiteSpace(Text(app,field)) || Text(app,field).Length>10000) throw Error(400, "invalid_app", "Name, descriptions and version are required.");
         if (Text(app,"tab") is not("arcelik" or "other") || Strings(app["categories"]).Length==0 || Strings(app["categories"]).Except(categories).Any() || Strings(app["platforms"]).Length==0 || Strings(app["platforms"]).Except(new[]{"Web","iOS","Android","Windows"}).Any())throw Error(400,"invalid_application","Select valid categories and platforms.");
+        if (app["translations"] is not null)
+        {
+            if (app["translations"] is not JsonObject translations || translations.Any(p => p.Key is not ("en" or "tr")))
+                throw Error(400, "invalid_translation", "Application translations support English and Turkish only.");
+            foreach (var language in translations)
+            {
+                if (language.Value is not JsonObject fields || fields.Any(p => p.Key is not ("name" or "shortDescription" or "description")))
+                    throw Error(400, "invalid_translation", "Check the translated application fields.");
+                foreach (var field in fields)
+                {
+                    var maximum = field.Key == "name" ? 80 : field.Key == "shortDescription" ? 500 : 10000;
+                    if (field.Value is not JsonValue value || !value.TryGetValue<string>(out var text) || text.Length > maximum)
+                        throw Error(400, "invalid_translation", "Check the translated text length and format.");
+                }
+            }
+        }
         app.Remove("countries");app.Remove("employeeTypes");app.Remove("managerOnly");
         if (app["isActive"] is not JsonValue || app["isArchived"] is not JsonValue) throw Error(400, "invalid_status", "Active and archive flags are required.");
         _ = app["isActive"]!.GetValue<bool>(); _ = app["isArchived"]!.GetValue<bool>();

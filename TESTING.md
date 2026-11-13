@@ -20,7 +20,7 @@ npm test
 ```
 
 Current automated suites:
-- tests/backup.cjs: Admin export permissions, complete history and isolated PostgreSQL restore round trip.
+- tests/app-translations.cjs: live React/PostgreSQL EN/TR editing, preview isolation, persisted translations, localized browsing/search, fallback and API validation.
 - tests/origin-gateway.cjs: real PostgreSQL saves using the public Origin and an internal Host; rejects wrong origins/cross-site requests and restores the edited test record.
 - tests/ui.cjs: real React screens, manual filters, no employment fields/local-storage dependency, save conflict feedback and Production account separation.
 - tests/integration.cjs: isolated Test and simulated-gateway Production stacks, actual PostgreSQL, persistence/restart, admin rules, manual filters, environment isolation, safe redirects and append-only events.

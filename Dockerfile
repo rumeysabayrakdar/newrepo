@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
 # .NET 10 + React application. PostgreSQL is mandatory.
-FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+FROM harbor.norm.ar.arcelik/mcr-cache/dotnet/sdk:10.0-alpine AS build
 COPY . /src/
 RUN --mount=type=secret,id=proxy_ca \
     if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca; fi; \
     dotnet publish /src/src/AppStore.Web/AppStore.Web.csproj -c Release -o /app/publish /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
+FROM harbor.norm.ar.arcelik/mcr-cache/dotnet/aspnet:10.0-alpine AS runtime
 WORKDIR /app
 COPY --from=build --chown=app:app /app/publish/ ./
 ENV ASPNETCORE_HTTP_PORTS=8080

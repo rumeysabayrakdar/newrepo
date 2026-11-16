@@ -1,85 +1,29 @@
-# Arçelik App Store
+# Arçelik App Store — Norm TEST package
 
-The real application catalogue: **.NET 10 + React + PostgreSQL 17**. There is one application and one database-backed implementation. No localStorage database, static demo backend, country targeting, collar-type targeting or manager targeting is used.
+Start with [START-HERE.md](START-HERE.md). Upload the ZIP root as a .NET backend project on port 8080.
 
-## What users can do
+Runtime: .NET 10, React frontend and PostgreSQL 17 via Npgsql 10.0.3. There is no Python, Node server or TypeORM. The uploaded approved interface, images and fonts are retained. Node/Babel/jsdom are optional development tools, not deployment runtime dependencies.
 
-Everyone sees the same active, unarchived applications. Browse Developed by Arçelik / Other applications and filter by search, category and platform. Open details, links and documents. Administrators manage applications, versions, links, screenshots, documents, categories, translations, archive/status and Admin assignments. Unsaved preview stays private; saved changes are shared immediately.
+The frontend is already built. NuGet.Config points at the included vendor/nuget package feed; publish was verified with networking disabled and an empty package cache. The .NET SDK/runtime and PostgreSQL container images are still supplied by the host/registry, not embedded in the ZIP. The Dockerfile retains your Norm registry mirrors.
 
-The initial inventory contains the six applications you supplied. Download addresses remain pending until an Admin enters verified URLs. No imaginary download destinations are seeded.
+## Database connection
 
-## Application content languages
+The single discoverable connection template is src/AppStore.Web/appsettings.json. Norm can replace it with the project's actual private connection during upload. A blank Database:Name follows the selected connection's database instead of an old project's hard-coded name. An explicitly configured expected name is still enforced, and database environment markers prevent Test/Production reuse.
 
-Edit an application and use Application translations → Content language to enter English (en) and Turkish (tr) names, summaries and descriptions. Original fields remain the fallback for each empty translation. Both languages save together in PostgreSQL. The header language selector updates cards, details and catalogue search; Admin search uses the selected name. Private preview follows the editor content language. Version, platforms and destinations stay shared. No automatic translation is performed and existing content is not rewritten.
+Supported hosting inputs: ConnectionStrings__AppStore, POSTGRES_CONNECTION_STRING, DATABASE_URL, standard connection aliases or a complete POSTGRES_HOST/POSTGRES_DB/POSTGRES_USER set. A supplied connection takes precedence over the bundled template. Passwords may be in the hosting secret connection, POSTGRES_PASSWORD, Database__PasswordFile or POSTGRES_PASSWORD_FILE. PostgreSQL URL TLS settings are preserved. Unknown URL options fail rather than silently dropping connection settings.
 
-## Current agreed scope
+Startup applies the embedded additive schema and initializes the catalogue and experience model once. There is no browser-local data fallback. PostgreSQL stores shared edits, favourites, comments, feedback and activity. Local storage is used only for UI preferences. Existing saved experience content is retained. Test and Production start with the same six approved catalogue definitions; Test-only extra demonstration portal/profile content remains as supplied in the uploaded experience.
 
-See [ACCEPTANCE-STATUS.md](ACCEPTANCE-STATUS.md) for ticket decisions. HTTPS APK download addresses are supported; APK binaries are served from company storage or another download host. Every authenticated open attempt records its result (redirect issued or blocked), reason and HTTP status. External download completion or installation cannot be inferred from a redirect. Phone verification, full UAT and operations acceptance are deferred by user instruction. Okta is configured in Norm.
+## Environment
 
-## Test and Production
+AppStore:Environment in the base appsettings.json selects Test or Production. Environment variables cannot switch it. Production rejects missing trusted gateway networks, requires verified identity and must use a separate database. The supplied production Compose selector exists, but real gateway ranges/admin IDs/Production origin are intentionally not fabricated.
 
-The **only environment switch** is `AppStore:Environment` in `src/AppStore.Web/appsettings.json`:
+## Build and tests
 
-```json
-"AppStore": { "Environment": "Test" }
-```
+Frontend edits: npm ci, npm run build. The deployed app does not run npm.
 
-Set it to `Production` to load `appsettings.Production.json` instead of `appsettings.Test.json`. ASPNETCORE_ENVIRONMENT, DOTNET_ENVIRONMENT and AppStore__Environment variables cannot change this selection. Hosting secrets may still override connection/password/gateway settings; they never switch the selected environment.
+.NET publish: dotnet publish src/AppStore.Web/AppStore.Web.csproj -c Release. NuGet restore uses the bundled pinned package.
 
-- **Test:** PostgreSQL is mandatory. The account selector offers Rümeysa (Employee) and Zeynep (initial Admin). No application Okta flow is used.
-- **Production:** Norm's Okta/auth-gate handles sign-in. The backend verifies its trusted source and standard identity headers. No Test selector or synthetic identities are available. All employees can browse the same active catalogue; no employment attributes are requested or required.
+A Compose host can run docker compose up --build -d to create the Test app, PostgreSQL, persistent volumes and generated private password. This does not imply Norm runs Compose automatically; its Dockerfile-only workflow must attach PostgreSQL infrastructure.
 
-A separate database name, environment marker, data volume and generated secret are used for each environment. Cross-environment reuse is rejected.
-
-## Start Test
-
-On a Docker Compose host:
-
-```sh
-docker compose up --build -d
-```
-
-Open port 8080. PostgreSQL starts automatically, its password is generated privately, tables are created, and the six-app inventory is seeded once. Data survives app restarts. Do not remove data/secrets volumes unless you intentionally want to erase that environment.
-
-You do not need to install anything on your own PC to upload the project to a compatible host or use the deployed website. See [START-HERE.md](START-HERE.md).
-
-## Production deployment
-
-[DEPLOYMENT.md](DEPLOYMENT.md) describes the exact production requirements. Configure the real database, trusted auth-gate networks and the employee ID of the first Admin. Do not guess gateway networks or commit credentials. The code does not implement a second Okta/OAuth login page; it uses the gateway integration you specified.
-
-`compose.production.yaml` supplies a separately isolated database and mounts the Production selector. Its web port is bound to host loopback for use behind a trusted gateway. It will not start until trusted gateway networks are configured. This is deliberate, not a fallback to Test.
-
-Live Norm infrastructure/access settings cannot be provisioned from this repository. Norm must either run the Compose services or supply a managed PostgreSQL connection. ZIP/GitHub import support and gateway policy are hosting responsibilities, not client-side configuration.
-
-## Code
-
-```text
-app.jsx / dist/                         React source and built static assets
-src/AppStore.Web/Program.cs             .NET API, JSON environment selection and hosting
-src/AppStore.Web/Identity/              Verified gateway identity; no employment claims
-src/AppStore.Web/Database/              PostgreSQL service, transactions, validation, schema
-src/AppStore.Web/catalogue-seed.json    Six user-supplied app listings and reference text
-src/AppStore.Web/appsettings*.json      Test / Production settings
-compose.yaml / compose.production.yaml Separate database/data/secret services
-Dockerfile                             .NET serves the API and React assets
-```
-
-Node/Babel and jsdom are development/build/testing tools only. There is no Node/Python backend, extra database, cache service or additional application framework.
-
-## Persistence and access
-
-PostgreSQL stores a revisioned JSONB catalogue/reference/admin document, registered users, separate action logs and separate admin audit logs. Multiple categories and platforms are retained. Each mutation and its audit row commit in the same transaction; conflicting edits are rejected without discarding the draft. User events receive distinct UUID rows, including repeated actions. Log UPDATE/DELETE/TRUNCATE operations are rejected by database triggers; a database administrator can still alter schema/protections.
-
-Roles are Employee and Admin only. Production grants target users who have actually signed in. Initial Admin bootstrap applies only to explicitly configured verified employee IDs and is audited once. Country, worker type and manager fields are not read from identity and do not affect catalogue visibility. Active/archive state still controls availability.
-
-Existing PostgreSQL v0.x state and event IDs migrate into the shared `appstore` schema transactionally. Custom apps/edits are retained; obsolete generated scenario/sample entries are archived rather than deleted. Old targeting fields are removed from the current catalogue model. Browser-only data from the former demo cannot be imported automatically.
-
-## Build and test
-
-```sh
-npm ci
-npm run build
-npm test
-```
-
-[TESTING.md](TESTING.md) describes the real PostgreSQL integration, two-client workflow and upgrade checks. [VALIDATION.md](VALIDATION.md) records verification and remaining live-host limitations. Historical planning attachments under docs/ describe older requirements; this README and the latest user requirements supersede their employee-targeting rules.
+Tests and practical verification limits are in TESTING.md and VALIDATION.md. Historical planning files in docs are reference documents, not instructions to reinstate superseded deployment settings. Dashboard sample numbers and pending external/Okta integrations remain as labelled in the supplied UI.

@@ -1,0 +1,1099 @@
+{
+  "version": 3,
+  "logo": "",
+  "copy": {
+    "en": {
+      "greeting": "Hi {name},",
+      "title": "Your everyday work.",
+      "accent": "A little more connected.",
+      "subtitle": "The apps that bring us together and make work a little easier."
+    },
+    "tr": {
+      "greeting": "Merhaba {name},",
+      "title": "Günlük işlerin.",
+      "accent": "Biraz daha bağlantılı.",
+      "subtitle": "Bizi bir araya getiren ve işimizi biraz daha kolaylaştıran uygulamalar."
+    }
+  },
+  "search": {
+    "en": "Search e.g.",
+    "tr": "Örneğin ara:",
+    "ids": [
+      "pa",
+      "bizpuan",
+      "servis"
+    ]
+  },
+  "categories": [
+    {
+      "id": "productivity",
+      "en": "Productivity",
+      "tr": "Üretkenlik"
+    },
+    {
+      "id": "business",
+      "en": "Business tools",
+      "tr": "İş araçları"
+    },
+    {
+      "id": "training",
+      "en": "Training",
+      "tr": "Eğitim"
+    },
+    {
+      "id": "security",
+      "en": "Security",
+      "tr": "Güvenlik"
+    }
+  ],
+  "apps": [
+    {
+      "id": "pa",
+      "en": {
+        "name": "Perakende Akademi",
+        "description": "A private mobile application for Arçelik Pazarlama A.Ş. dealers and field teams."
+      },
+      "tr": {
+        "name": "Perakende Akademi",
+        "description": "Perakende Akademi mobil uygulaması sadece Arçelik Pazarlama A.Ş. bayilerinin ve saha ekiplerinin kullanabildiği kapalı devre bir uygulamadır."
+      },
+      "version": "2.2.2",
+      "tab": "arcelik",
+      "categories": [
+        "productivity",
+        "training"
+      ],
+      "platforms": [
+        "iOS"
+      ],
+      "asset": 0,
+      "color": "#686e70",
+      "image": "",
+      "url": "",
+      "active": true,
+      "labels": [
+        "updated"
+      ],
+      "comments": [
+        {
+          "id": "pa-11",
+          "author": "Zeynep Arslan",
+          "time": "2026-11-13T06:12:00Z",
+          "text": {
+            "en": "Works well for our dealer onboarding.",
+            "tr": "Bayi katılım sürecimizde sorunsuz çalışıyor."
+          }
+        }
+      ],
+      "featuredComment": "pa-11",
+      "archived": false,
+      "featured": true,
+      "links": [
+        {
+          "id": "pa-link-0",
+          "platform": "iOS",
+          "version": "2.2.2",
+          "url": "",
+          "pending": true,
+          "label": {
+            "en": "Perakende Akademi for iOS",
+            "tr": "iOS için Perakende Akademi"
+          }
+        }
+      ],
+      "documents": [],
+      "images": [],
+      "symbol": "PA"
+    },
+    {
+      "id": "servis",
+      "en": {
+        "name": "Servis Akademi",
+        "description": "A private mobile application for Arçelik Pazarlama A.Ş. authorised service centres and their employees."
+      },
+      "tr": {
+        "name": "Servis Akademi",
+        "description": "Servis Akademi mobil uygulaması sadece Arçelik Pazarlama A.Ş. Yetkili Servislerinin ve çalışanlarının kullanabildiği kapalı devre bir uygulamadır."
+      },
+      "version": "1.0.2",
+      "tab": "arcelik",
+      "categories": [
+        "productivity",
+        "training"
+      ],
+      "platforms": [
+        "iOS"
+      ],
+      "asset": 1,
+      "color": "#ed950d",
+      "image": "",
+      "url": "",
+      "active": true,
+      "labels": [
+        "new"
+      ],
+      "comments": [
+        {
+          "id": "servis-12",
+          "author": "Rümeysa Bayrakdar",
+          "time": "2026-11-13T07:40:00Z",
+          "text": {
+            "en": "The APK installs fine on our service tablets.",
+            "tr": "APK, servis tabletlerimize sorunsuz kuruluyor."
+          }
+        }
+      ],
+      "featuredComment": "servis-12",
+      "archived": false,
+      "featured": true,
+      "links": [
+        {
+          "id": "servis-link-0",
+          "platform": "iOS",
+          "version": "1.0.2",
+          "url": "",
+          "pending": true,
+          "label": {
+            "en": "Servis Akademi for iOS",
+            "tr": "iOS için Servis Akademi"
+          }
+        }
+      ],
+      "documents": [],
+      "images": [],
+      "symbol": "SA"
+    },
+    {
+      "id": "ar",
+      "en": {
+        "name": "Perakende Akademi (AR)",
+        "description": "Explore products in augmented reality with the Perakende Akademi test application."
+      },
+      "tr": {
+        "name": "Perakende Akademi (AR)",
+        "description": "Perakende Akademisi Artırılmış Gerçeklik Uygulaması (Test)."
+      },
+      "version": "1.0.0",
+      "tab": "arcelik",
+      "categories": [
+        "productivity",
+        "training"
+      ],
+      "platforms": [
+        "iOS"
+      ],
+      "asset": 2,
+      "color": "#ff9f15",
+      "image": "",
+      "url": "",
+      "active": true,
+      "labels": [
+        "mobile"
+      ],
+      "comments": [],
+      "featuredComment": null,
+      "archived": false,
+      "featured": false,
+      "links": [
+        {
+          "id": "ar-link-0",
+          "platform": "iOS",
+          "version": "1.0.0",
+          "url": "",
+          "pending": true,
+          "label": {
+            "en": "Perakende Akademi (AR) for iOS",
+            "tr": "iOS için Perakende Akademi (AR)"
+          }
+        }
+      ],
+      "documents": [],
+      "images": [],
+      "symbol": "PA"
+    },
+    {
+      "id": "bizpuan",
+      "en": {
+        "name": "BizPuan",
+        "description": "A loyalty application where dealer and service employees earn points through activities and redeem their rewards."
+      },
+      "tr": {
+        "name": "BizPuan",
+        "description": "Bayi ve servis çalışanlarının çeşitli etkinliklerle puan kazanmalarını ve puanlarını harcamalarını sağlayan sadakat uygulamasıdır."
+      },
+      "version": "2.7",
+      "tab": "arcelik",
+      "categories": [
+        "business",
+        "productivity"
+      ],
+      "platforms": [
+        "iOS",
+        "Android"
+      ],
+      "asset": 4,
+      "color": "#d00c2b",
+      "image": "",
+      "url": "",
+      "active": true,
+      "labels": [
+        "popular",
+        "recommended"
+      ],
+      "comments": [
+        {
+          "id": "biz-13",
+          "author": "Zeynep Arslan",
+          "time": "2026-11-13T05:55:00Z",
+          "text": {
+            "en": "Points update instantly after each activity.",
+            "tr": "Her etkinlikten sonra puanlar anında güncelleniyor."
+          }
+        },
+        {
+          "id": "biz-14",
+          "author": "Rümeysa Bayrakdar",
+          "time": "2026-11-13T08:05:00Z",
+          "text": {
+            "en": "Please add a points history screen.",
+            "tr": "Puan geçmişi ekranı da ekleyebilir misiniz?"
+          }
+        }
+      ],
+      "featuredComment": "biz-13",
+      "archived": false,
+      "featured": true,
+      "links": [
+        {
+          "id": "bizpuan-link-0",
+          "platform": "iOS",
+          "version": "2.7",
+          "url": "",
+          "pending": true,
+          "label": {
+            "en": "BizPuan for iOS",
+            "tr": "iOS için BizPuan"
+          }
+        },
+        {
+          "id": "bizpuan-link-1",
+          "platform": "Android",
+          "version": "2.7",
+          "url": "",
+          "pending": true,
+          "label": {
+            "en": "BizPuan for Android",
+            "tr": "Android için BizPuan"
+          }
+        }
+      ],
+      "documents": [],
+      "images": [],
+      "symbol": "B"
+    },
+    {
+      "id": "sirius",
+      "en": {
+        "name": "SiriusTech",
+        "description": "The Sirius Tech application for everyday business operations."
+      },
+      "tr": {
+        "name": "SiriusTech",
+        "description": "Günlük iş süreçleri için Sirius Tech uygulaması."
+      },
+      "version": "1.0.2",
+      "tab": "arcelik",
+      "categories": [
+        "business"
+      ],
+      "platforms": [
+        "Android"
+      ],
+      "asset": 5,
+      "color": "#0755b9",
+      "image": "",
+      "url": "",
+      "active": true,
+      "labels": [],
+      "comments": [],
+      "featuredComment": null,
+      "archived": false,
+      "featured": false,
+      "links": [
+        {
+          "id": "sirius-link-0",
+          "platform": "Android",
+          "version": "1.0.2",
+          "url": "",
+          "pending": true,
+          "label": {
+            "en": "SiriusTech for Android",
+            "tr": "Android için SiriusTech"
+          }
+        }
+      ],
+      "documents": [],
+      "images": [],
+      "symbol": "S"
+    },
+    {
+      "id": "okta",
+      "en": {
+        "name": "Okta Verify (for China)",
+        "description": "Okta Verify for Arçelik Global users in China."
+      },
+      "tr": {
+        "name": "Okta Verify (Çin)",
+        "description": "Çin’deki Arçelik Global kullanıcıları için Okta Verify uygulaması."
+      },
+      "version": "6.1.1",
+      "tab": "other",
+      "categories": [
+        "security"
+      ],
+      "platforms": [
+        "Android"
+      ],
+      "asset": 3,
+      "color": "#0a97c4",
+      "image": "",
+      "url": "",
+      "active": true,
+      "labels": [
+        "recommended"
+      ],
+      "comments": [],
+      "featuredComment": null,
+      "archived": false,
+      "featured": false,
+      "links": [
+        {
+          "id": "okta-link-0",
+          "platform": "Android",
+          "version": "6.1.1",
+          "url": "",
+          "pending": true,
+          "label": {
+            "en": "Okta Verify (for China) for Android",
+            "tr": "Android için Okta Verify (Çin)"
+          }
+        }
+      ],
+      "documents": [],
+      "images": [],
+      "symbol": "OV"
+    },
+    {
+      "id": "connecta",
+      "en": {
+        "name": "Connecta",
+        "description": "An internally developed self-service web application for Beko employees worldwide to manage their data."
+      },
+      "tr": {
+        "name": "Connecta",
+        "description": "Dünyadaki tüm Beko çalışanlarının veri yönetimini yapabildiği, şirket içinde geliştirilen self servis web uygulaması."
+      },
+      "version": "",
+      "tab": "arcelik",
+      "categories": [
+        "business",
+        "productivity"
+      ],
+      "platforms": [
+        "Web"
+      ],
+      "asset": 7,
+      "color": "#009fe3",
+      "image": "assets/connecta.svg",
+      "url": "https://connecta.beko.com",
+      "active": true,
+      "labels": [],
+      "comments": [],
+      "featuredComment": null,
+      "archived": false,
+      "featured": false,
+      "links": [
+        {
+          "id": "connecta-link-0",
+          "platform": "Web",
+          "version": "",
+          "url": "https://connecta.beko.com",
+          "pending": false,
+          "label": {
+            "en": "Connecta for Web",
+            "tr": "Web için Connecta"
+          }
+        }
+      ],
+      "documents": [],
+      "images": [],
+      "symbol": "C"
+    }
+  ],
+  "audit": [],
+  "filters": {
+    "category": true,
+    "platform": true,
+    "label": true,
+    "sort": true,
+    "defaultSort": "default"
+  },
+  "uiOverrides": {
+    "en": {
+      "connectaTag": "MAIN WORK TOOL · INTERNAL WEB APP"
+    },
+    "tr": {
+      "connectaTag": "ANA ÇALIŞMA ARACIN · ŞİRKET İÇİ WEB UYGULAMASI"
+    }
+  },
+  "activity": [],
+  "admins": [
+    "zeynep"
+  ],
+  "adminAssignments": [
+    {
+      "employeeId": "10002",
+      "profileId": "zeynep"
+    }
+  ],
+  "uiLayout": {
+    "columns": 3,
+    "appOrder": [],
+    "featuredOrder": [],
+    "webOrder": [],
+    "webSizes": {
+      "connecta": "wide"
+    }
+  },
+  "webEntries": [
+    {
+      "id": "atlas",
+      "en": {
+        "name": "Atlas",
+        "description": "Open the Atlas company web application."
+      },
+      "tr": {
+        "name": "Atlas",
+        "description": "Şirket içi Atlas web uygulamasını aç."
+      },
+      "symbol": "A",
+      "url": "https://atlas.beko.com",
+      "image": "",
+      "type": "webapp",
+      "group": "internal",
+      "scope": "internal"
+    },
+    {
+      "id": "cafeteria",
+      "en": {
+        "name": "Sütlüce Block B Cafeteria",
+        "description": "Open the cafeteria ordering screen for Sütlüce Block B."
+      },
+      "tr": {
+        "name": "Sütlüce B Blok Kafeterya",
+        "description": "Sütlüce B Blok kafeterya sipariş ekranına ulaş."
+      },
+      "symbol": "☕",
+      "url": "https://apps.powerapps.com/play/e/default-ef5926db-9bdf-4f9f-9066-d8e7f03943f7/a/590c9ab9-1513-4a46-809c-5ba844db86f2?tenantId=ef5926db-9bdf-4f9f-9066-d8e7f03943f7&hint=18da55c1-fd31-4589-af87-f55046bfe6a7&sourcetime=1782734234793",
+      "image": "",
+      "type": "webapp",
+      "group": "internal",
+      "targetLocation": "sutluce-b",
+      "scope": "internal"
+    },
+    {
+      "id": "tool-0",
+      "en": {
+        "name": "Bookings",
+        "description": "Schedule appointments and bookings."
+      },
+      "tr": {
+        "name": "Bookings",
+        "description": "Randevu ve rezervasyonlarını düzenle."
+      },
+      "symbol": "B",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Planning",
+      "scope": "external"
+    },
+    {
+      "id": "tool-1",
+      "en": {
+        "name": "Mate",
+        "description": "A chatbot that helps improve the Beko employee experience."
+      },
+      "tr": {
+        "name": "Mate",
+        "description": "Beko çalışan deneyimini destekleyen sohbet botu."
+      },
+      "symbol": "M",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Beko",
+      "scope": "internal"
+    },
+    {
+      "id": "tool-2",
+      "en": {
+        "name": "Org Explorer",
+        "description": "Explore your organisation and team connections."
+      },
+      "tr": {
+        "name": "Org Explorer",
+        "description": "Organizasyonunu ve ekip bağlantılarını keşfet."
+      },
+      "symbol": "O",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "People",
+      "scope": "external"
+    },
+    {
+      "id": "tool-3",
+      "en": {
+        "name": "Planner",
+        "description": "Organise tasks and projects with your team."
+      },
+      "tr": {
+        "name": "Planner",
+        "description": "Ekibinle görev ve projeleri düzenle."
+      },
+      "symbol": "P",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Planning",
+      "scope": "external"
+    },
+    {
+      "id": "tool-4",
+      "en": {
+        "name": "Power BI",
+        "description": "Explore data and reports."
+      },
+      "tr": {
+        "name": "Power BI",
+        "description": "Verileri ve raporları incele."
+      },
+      "symbol": "BI",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Data",
+      "scope": "external"
+    },
+    {
+      "id": "tool-5",
+      "en": {
+        "name": "Calendar",
+        "description": "Manage and share your schedule."
+      },
+      "tr": {
+        "name": "Calendar",
+        "description": "Takvimini yönet ve paylaş."
+      },
+      "symbol": "C",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Planning",
+      "scope": "external"
+    },
+    {
+      "id": "tool-6",
+      "en": {
+        "name": "Clipchamp",
+        "description": "Create, edit and share videos."
+      },
+      "tr": {
+        "name": "Clipchamp",
+        "description": "Videolar oluştur, düzenle ve paylaş."
+      },
+      "symbol": "Cl",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Content",
+      "scope": "external"
+    },
+    {
+      "id": "tool-7",
+      "en": {
+        "name": "Connections",
+        "description": "Find company news, tools and resources."
+      },
+      "tr": {
+        "name": "Connections",
+        "description": "Şirket haberlerine, araçlara ve kaynaklara ulaş."
+      },
+      "symbol": "Co",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "People",
+      "scope": "external"
+    },
+    {
+      "id": "tool-8",
+      "en": {
+        "name": "Copilot Studio",
+        "description": "Build AI agents and automate workflows."
+      },
+      "tr": {
+        "name": "Copilot Studio",
+        "description": "Yapay zekâ aracıları oluştur ve iş akışlarını otomatikleştir."
+      },
+      "symbol": "CS",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Automation",
+      "scope": "external"
+    },
+    {
+      "id": "tool-9",
+      "en": {
+        "name": "Engage",
+        "description": "Connect and share with colleagues."
+      },
+      "tr": {
+        "name": "Engage",
+        "description": "Çalışma arkadaşlarınla iletişim kur ve paylaş."
+      },
+      "symbol": "E",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "People",
+      "scope": "external"
+    },
+    {
+      "id": "tool-10",
+      "en": {
+        "name": "Excel",
+        "description": "Work with spreadsheets and calculations."
+      },
+      "tr": {
+        "name": "Excel",
+        "description": "Tablolar ve hesaplamalarla çalış."
+      },
+      "symbol": "X",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Data",
+      "scope": "external"
+    },
+    {
+      "id": "tool-11",
+      "en": {
+        "name": "Forms",
+        "description": "Create surveys and quizzes."
+      },
+      "tr": {
+        "name": "Forms",
+        "description": "Anketler ve testler oluştur."
+      },
+      "symbol": "F",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Data",
+      "scope": "external"
+    },
+    {
+      "id": "tool-12",
+      "en": {
+        "name": "Insights",
+        "description": "Support your productivity and wellbeing."
+      },
+      "tr": {
+        "name": "Insights",
+        "description": "Üretkenliğini ve iyi oluşunu destekle."
+      },
+      "symbol": "I",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "People",
+      "scope": "external"
+    },
+    {
+      "id": "tool-13",
+      "en": {
+        "name": "Kaizala",
+        "description": "Workplace messaging tool listed in BeHome."
+      },
+      "tr": {
+        "name": "Kaizala",
+        "description": "BeHome içinde listelenen iş iletişimi aracı."
+      },
+      "symbol": "K",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "People",
+      "scope": "external"
+    },
+    {
+      "id": "tool-14",
+      "en": {
+        "name": "Learning",
+        "description": "Discover learning with Viva Learning."
+      },
+      "tr": {
+        "name": "Learning",
+        "description": "Viva Learning ile eğitimleri keşfet."
+      },
+      "symbol": "L",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Learning",
+      "scope": "external"
+    },
+    {
+      "id": "tool-15",
+      "en": {
+        "name": "Learning…",
+        "description": "Explore AI-supported learning activities."
+      },
+      "tr": {
+        "name": "Learning…",
+        "description": "Yapay zekâ destekli öğrenme etkinliklerini keşfet."
+      },
+      "symbol": "L+",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Learning",
+      "scope": "external"
+    },
+    {
+      "id": "tool-16",
+      "en": {
+        "name": "Lists",
+        "description": "Create and track shared lists."
+      },
+      "tr": {
+        "name": "Lists",
+        "description": "Paylaşılan listeler oluştur ve takip et."
+      },
+      "symbol": "Li",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Data",
+      "scope": "external"
+    },
+    {
+      "id": "tool-17",
+      "en": {
+        "name": "Loop",
+        "description": "Think, plan and create together."
+      },
+      "tr": {
+        "name": "Loop",
+        "description": "Birlikte düşün, planla ve üret."
+      },
+      "symbol": "Lo",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Content",
+      "scope": "external"
+    },
+    {
+      "id": "tool-18",
+      "en": {
+        "name": "OneDrive",
+        "description": "Store and share your files."
+      },
+      "tr": {
+        "name": "OneDrive",
+        "description": "Dosyalarını sakla ve paylaş."
+      },
+      "symbol": "D",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Content",
+      "scope": "external"
+    },
+    {
+      "id": "tool-19",
+      "en": {
+        "name": "OneNote",
+        "description": "Keep your notes in a digital notebook."
+      },
+      "tr": {
+        "name": "OneNote",
+        "description": "Notlarını dijital not defterinde tut."
+      },
+      "symbol": "N",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Content",
+      "scope": "external"
+    },
+    {
+      "id": "tool-20",
+      "en": {
+        "name": "Outlook",
+        "description": "Access email and your calendar."
+      },
+      "tr": {
+        "name": "Outlook",
+        "description": "E-postalarına ve takvimine eriş."
+      },
+      "symbol": "O",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "People",
+      "scope": "external"
+    },
+    {
+      "id": "tool-21",
+      "en": {
+        "name": "People",
+        "description": "Manage and find contacts."
+      },
+      "tr": {
+        "name": "People",
+        "description": "Kişilerini yönet ve bul."
+      },
+      "symbol": "Pe",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "People",
+      "scope": "external"
+    },
+    {
+      "id": "tool-22",
+      "en": {
+        "name": "Power Apps",
+        "description": "Build apps for your business processes."
+      },
+      "tr": {
+        "name": "Power Apps",
+        "description": "İş süreçleri için uygulamalar oluştur."
+      },
+      "symbol": "PA",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Automation",
+      "scope": "external"
+    },
+    {
+      "id": "tool-23",
+      "en": {
+        "name": "Power Automate",
+        "description": "Automate everyday workflows."
+      },
+      "tr": {
+        "name": "Power Automate",
+        "description": "Günlük iş akışlarını otomatikleştir."
+      },
+      "symbol": "A",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Automation",
+      "scope": "external"
+    },
+    {
+      "id": "tool-24",
+      "en": {
+        "name": "Power Pages",
+        "description": "Create business websites."
+      },
+      "tr": {
+        "name": "Power Pages",
+        "description": "İş amaçlı web siteleri oluştur."
+      },
+      "symbol": "PP",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Automation",
+      "scope": "external"
+    },
+    {
+      "id": "tool-25",
+      "en": {
+        "name": "PowerPoint",
+        "description": "Create and share presentations."
+      },
+      "tr": {
+        "name": "PowerPoint",
+        "description": "Sunumlar oluştur ve paylaş."
+      },
+      "symbol": "P",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Content",
+      "scope": "external"
+    },
+    {
+      "id": "tool-26",
+      "en": {
+        "name": "SharePoint",
+        "description": "Share content and team knowledge."
+      },
+      "tr": {
+        "name": "SharePoint",
+        "description": "İçerikleri ve ekip bilgisini paylaş."
+      },
+      "symbol": "S",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Content",
+      "scope": "external"
+    },
+    {
+      "id": "tool-27",
+      "en": {
+        "name": "Sway",
+        "description": "Create interactive reports and stories."
+      },
+      "tr": {
+        "name": "Sway",
+        "description": "Etkileşimli raporlar ve hikâyeler oluştur."
+      },
+      "symbol": "Sw",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Content",
+      "scope": "external"
+    },
+    {
+      "id": "tool-28",
+      "en": {
+        "name": "Teams",
+        "description": "Meet, chat and collaborate."
+      },
+      "tr": {
+        "name": "Teams",
+        "description": "Toplantı yap, sohbet et ve birlikte çalış."
+      },
+      "symbol": "T",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "People",
+      "scope": "external"
+    },
+    {
+      "id": "tool-29",
+      "en": {
+        "name": "To Do",
+        "description": "Keep track of your tasks."
+      },
+      "tr": {
+        "name": "To Do",
+        "description": "Yapılacak işlerini takip et."
+      },
+      "symbol": "✓",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Planning",
+      "scope": "external"
+    },
+    {
+      "id": "tool-30",
+      "en": {
+        "name": "Visio",
+        "description": "Explain information with diagrams."
+      },
+      "tr": {
+        "name": "Visio",
+        "description": "Bilgileri diyagramlarla anlat."
+      },
+      "symbol": "V",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Content",
+      "scope": "external"
+    },
+    {
+      "id": "tool-31",
+      "en": {
+        "name": "Viva",
+        "description": "Explore employee experience tools."
+      },
+      "tr": {
+        "name": "Viva",
+        "description": "Çalışan deneyimi araçlarını keşfet."
+      },
+      "symbol": "Vi",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "People",
+      "scope": "external"
+    },
+    {
+      "id": "tool-32",
+      "en": {
+        "name": "Whiteboard",
+        "description": "Brainstorm on a shared canvas."
+      },
+      "tr": {
+        "name": "Whiteboard",
+        "description": "Ortak bir tuvalde fikir geliştir."
+      },
+      "symbol": "Wb",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Content",
+      "scope": "external"
+    },
+    {
+      "id": "tool-33",
+      "en": {
+        "name": "Word",
+        "description": "Write and edit documents together."
+      },
+      "tr": {
+        "name": "Word",
+        "description": "Belgeleri birlikte yaz ve düzenle."
+      },
+      "symbol": "W",
+      "url": "https://arcelik.sharepoint.com/sites/BeHome",
+      "image": "",
+      "type": "service",
+      "group": "Content",
+      "scope": "external"
+    }
+  ],
+  "webPortal": {
+    "id": "behome",
+    "en": {
+      "name": "BeHome",
+      "description": "Your starting point for company resources and connected tools."
+    },
+    "tr": {
+      "name": "BeHome",
+      "description": "Şirket kaynaklarına ve bağlantılı araçlara açılan başlangıç noktan."
+    },
+    "url": "https://arcelik.sharepoint.com/sites/BeHome",
+    "symbol": "b.",
+    "image": "",
+    "background": "assets/portal-office.jpg"
+  },
+  "testProfiles": []
+}

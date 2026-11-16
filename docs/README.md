@@ -1,3 +1,3 @@
-# Historical planning attachments
+# Current documents
 
-These original attachments are preserved for reference, not current deployment instructions. The latest product decision replaces employment-based targeting and demo storage with one .NET/React/PostgreSQL application, manual browsing filters, and JSON-only Test/Production selection. The root README, START-HERE and DEPLOYMENT files describe the current project.
+The three v3.0 documents in this directory describe this TEST candidate. They supersede the previous MVP planning baseline. See START-HERE.md for uploading.

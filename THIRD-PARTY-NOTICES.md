@@ -5,3 +5,5 @@
 - DM Sans and Manrope are optionally fetched from Google Fonts at runtime and fall back to system fonts. Font binaries are not bundled here.
 
 Arçelik branding appears as the subject of this recreation. This demo is not a claim of official production deployment or ownership of that brand.
+
+Npgsql 10.0.3 is bundled as a NuGet package under its PostgreSQL license. See licenses/Npgsql-LICENSE.

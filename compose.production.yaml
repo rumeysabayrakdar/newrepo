@@ -42,7 +42,11 @@ services:
     ports:
       - "127.0.0.1:8081:8080"
     environment:
-      Database__PasswordFile: /run/appstore-secrets/postgres-password
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: arcelik_appstore_production
+      POSTGRES_USER: appstore_production
+      POSTGRES_PASSWORD_FILE: /run/appstore-secrets/postgres-password
     volumes:
       - production-secrets:/run/appstore-secrets:ro
       - ./deployment/production/appsettings.json:/app/appsettings.json:ro

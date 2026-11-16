@@ -1,21 +1,24 @@
-# What to do next
+# Upload this TEST package to Norm
 
-The project is now one real .NET / React / PostgreSQL application. All application changes are saved to PostgreSQL and shared across users. Search, category and platform filters replace automatic employee-information filtering.
+1. Open the existing TEST project in Norm and upload this complete ZIP.
+2. Select PostgreSQL infrastructure if Norm asks. Accept the connection replacement for src/AppStore.Web/appsettings.json. No database-name editing is needed: the app reads the name from the supplied connection.
+3. Keep container port 8080. Leave optional Setup SQL empty; the app creates its own tables. Approve the replacement and choose Confirm & Start.
+4. Open /healthz on the deployed website. A working app returns JSON with database connected and environment Test.
+5. Open the website. Zeynep is the Test Admin and Rümeysa is the Test employee. Save an edit and refresh to check persistence.
 
-## Your Test version
+## Website address
 
-1. Import the latest main branch from GitHub, or upload the latest complete ZIP.
-2. Keep `AppStore:Environment` as `Test` in appsettings.json.
-3. Start the app with its PostgreSQL service, or use the managed PostgreSQL connection Norm supplies.
-4. Open the site. Choose Rümeysa to browse and Zeynep to manage applications.
-5. Save an app change, then check it from another browser. Refreshing or restarting the app does not erase the change.
+This package preserves the address in your uploaded file:
+https://arcelik-appstore-test-environment.norm.ar.arcelik
 
-If Norm runs the included Compose services, the database and its private password are set up automatically. If it only runs the Dockerfile, its platform must provide the database and secure connection. Uploading code cannot override Norm infrastructure permissions or fix an empty repository-checkout path in the importer.
+If Norm uses a different public website address, set Hosting__TrustedPublicOrigin in the project's Env settings to that exact address. This protects saving through the gateway. Do not use a database address here.
 
-## When you are ready for Production
+## What is ready
 
-A hosting administrator supplies the Production database connection, trusted Norm gateway network and the first Admin's real employee ID. Then the appsettings environment selector is changed to Production. Test and Production use separate data and credentials.
+The ZIP includes the .NET API, built React interface and assets/fonts, pinned PostgreSQL driver package, database schema, seed data, migrations and Docker/Compose setup. Startup adds the required tables and seeds new stores once, retaining existing data. Temporary database-startup failures retry automatically. Test/Production selection is still exclusively AppStore:Environment in appsettings.json.
 
-You do not need country, white-/blue-collar or manager claims. Okta is used only for sign-in and identifying the user. No extra application login page is shown.
+## What Norm supplies
 
-Do not paste passwords into chat or GitHub. DEPLOYMENT.md contains the operator settings; you do not need to understand them to test the application.
+Norm must create/attach the running PostgreSQL service and provide its secret connection. This is the platform's infrastructure step; no source ZIP can provision a managed database without that permission. The ZIP includes no real password, live data or deployment token. The included Compose setup also creates PostgreSQL and generates its password on a Compose-capable host.
+
+This is a Test release. Production needs its own database, real auth-gate settings and verified first Admin. Do not change the working Test database to Production.

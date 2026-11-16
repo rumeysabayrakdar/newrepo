@@ -28,3 +28,17 @@ CREATE TRIGGER admin_logs_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON appst
 FOR EACH STATEMENT EXECUTE FUNCTION appstore.reject_log_change();
 
 CREATE TABLE IF NOT EXISTS appstore.users(id text PRIMARY KEY,name text NOT NULL,internal_user_id text,email text);
+
+-- Approved experience model. Additive migration; legacy catalogue is retained.
+CREATE TABLE IF NOT EXISTS appstore.experience_state (
+ id integer PRIMARY KEY CHECK(id=1), revision bigint NOT NULL DEFAULT 1,
+ payload jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS appstore.user_preferences (
+ user_id text PRIMARY KEY, payload jsonb NOT NULL DEFAULT '{"favorites":[],"likes":[]}'::jsonb,
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS appstore.feedback (
+ id uuid PRIMARY KEY, user_id text NOT NULL, topic text NOT NULL,
+ message text NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
+);

@@ -5,26 +5,23 @@ using AppStore.Web.Identity;
 
 namespace AppStore.Web.Database;
 
-public sealed class AppStoreDatabase : IAsyncDisposable
+public sealed partial class AppStoreDatabase : IAsyncDisposable
 {
     private readonly NpgsqlDataSource source;
     private readonly IConfiguration config;
     private readonly JsonObject seed;
     public AppUser[] People { get; }
     private readonly string environment;
+    private readonly string expectedDatabase;
     public AppStoreDatabase(IConfiguration config)
     {
         this.config = config;
         environment = config["AppStore:Environment"]!;
-        var connection = config.GetConnectionString("AppStore");
-        if (string.IsNullOrWhiteSpace(connection)) throw new InvalidOperationException("The PostgreSQL connection is missing. Ask your hosting administrator to configure it securely.");
-        var cs = new NpgsqlConnectionStringBuilder(connection) { IncludeErrorDetail = false };
+        var (cs, databaseName) = DatabaseConnection.Resolve(config);
+        expectedDatabase = databaseName;
         var passwordFile = config["Database:PasswordFile"];
+        if(string.IsNullOrWhiteSpace(passwordFile)) passwordFile = config["POSTGRES_PASSWORD_FILE"];
         if (!string.IsNullOrEmpty(passwordFile)) cs.Password = File.ReadAllText(passwordFile).Trim();
-        var expected = config["Database:Name"];
-        if (string.IsNullOrWhiteSpace(expected) || cs.Database != expected)
-            throw new InvalidOperationException("The database name does not match the selected environment. Startup was blocked.");
-        cs["GSS Encryption Mode"] = "Disable"; // Password-based PostgreSQL; TLS settings are preserved.
         source = NpgsqlDataSource.Create(cs.ConnectionString);
         var document = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "catalogue-seed.json")))!.AsObject();
         seed = document["state"]!.AsObject();
@@ -37,7 +34,7 @@ public sealed class AppStoreDatabase : IAsyncDisposable
         await using var tx = await connection.BeginTransactionAsync();
         await Exec(connection, tx, "SELECT pg_advisory_xact_lock(732019468)");
         var actual = (string)(await new NpgsqlCommand("SELECT current_database()", connection, tx).ExecuteScalarAsync())!;
-        if (actual != config["Database:Name"]) throw new InvalidOperationException("The database does not match the selected environment.");
+        if (actual != expectedDatabase) throw new InvalidOperationException("The database does not match the selected environment.");
         var assembly = typeof(AppStoreDatabase).Assembly;
         using var stream = assembly.GetManifestResourceStream("AppStore.Web.Database.schema.sql")!;
         using var reader = new StreamReader(stream);
@@ -53,6 +50,8 @@ public sealed class AppStoreDatabase : IAsyncDisposable
         await using (var mark = new NpgsqlCommand("INSERT INTO appstore.metadata(key,value) VALUES ('environment',@environment),('schema_version','2') ON CONFLICT DO NOTHING", connection, tx))
         { mark.Parameters.AddWithValue("environment", environment); await mark.ExecuteNonQueryAsync(); }
         var initial = (JsonObject)seed.DeepClone(); initial.Remove("events"); initial.Remove("_revision");
+        // User-approved inventory is shared by both environments; identities and
+        // databases remain separate. Existing catalogue rows are never overwritten.
         initial["admins"] = environment == "Test" ? Array(config.GetSection("Authentication:TestAdminIds").Get<string[]>() ?? []) : new JsonArray();
         await using var insert = new NpgsqlCommand("INSERT INTO appstore.catalogue_state(id,payload) VALUES (1,@data) ON CONFLICT DO NOTHING", connection, tx);
         insert.Parameters.AddWithValue("data", NpgsqlDbType.Jsonb, initial.ToJsonString());
@@ -60,6 +59,32 @@ public sealed class AppStoreDatabase : IAsyncDisposable
         foreach (var user in People) await Register(connection, tx, user);
         await tx.CommitAsync();
         await UpgradeLegacy();
+        // Add newly introduced UI keys to existing catalogue JSONB without replacing admin edits.
+        await EnsureTranslationKeys();
+        await InitializeExperience();
+    }
+    private async Task EnsureTranslationKeys()
+    {
+        await using var connection = await source.OpenConnectionAsync();
+        await using var tx = await connection.BeginTransactionAsync();
+        var (state, revision) = await Load(connection, tx, true);
+        var translations = state["translations"] as JsonObject ?? new JsonObject();
+        bool changed = false;
+        foreach (var language in new[] { "en", "tr" })
+        {
+            var target = translations[language] as JsonObject;
+            if (target is null) { target = new JsonObject(); translations[language] = target; changed = true; }
+            foreach (var entry in seed["translations"]![language]!.AsObject())
+                if (!target.ContainsKey(entry.Key)) { target[entry.Key] = entry.Value?.DeepClone(); changed = true; }
+        }
+        if (changed)
+        {
+            state["translations"] = translations;
+            await using var update = new NpgsqlCommand("UPDATE appstore.catalogue_state SET payload=@data,revision=revision+1,updated_at=now() WHERE id=1",connection,tx);
+            update.Parameters.AddWithValue("data",NpgsqlDbType.Jsonb,state.ToJsonString());
+            await update.ExecuteNonQueryAsync();
+        }
+        await tx.CommitAsync();
     }
     public AppUser Person(HttpContext context)
     {
@@ -182,6 +207,21 @@ public sealed class AppStoreDatabase : IAsyncDisposable
             case "Unused category removed":
                 if (!categories.Contains(entity) || apps.OfType<JsonObject>().Any(a => Strings(a["categories"]).Contains(entity))) throw Error(409, "category_in_use", "Only unused categories can be removed.");
                 state["categories"] = Array(categories.Where(c => c != entity)); break;
+            case "Branding updated":
+            {
+                var logo = Text(after!, "logo");
+                const string prefix = "data:image/png;base64,";
+                if (logo.Length > 700000 || !logo.StartsWith(prefix, StringComparison.Ordinal))
+                    throw Error(400, "invalid_logo", "Choose a PNG image no larger than 512 KB.");
+                byte[] bytes;
+                try { bytes = Convert.FromBase64String(logo[prefix.Length..]); }
+                catch (FormatException) { throw Error(400, "invalid_logo", "The PNG image is invalid."); }
+                byte[] signature = [137,80,78,71,13,10,26,10];
+                if (bytes.Length < 8 || bytes.Length > 512 * 1024 || !bytes.AsSpan(0,8).SequenceEqual(signature))
+                    throw Error(400, "invalid_logo", "Choose a valid PNG image no larger than 512 KB.");
+                state["branding"] = new JsonObject { ["logo"] = logo };
+                break;
+            }
             case "Translation edited":
             {
                 var parts = entity.Split('.', 2); var value = Text(after!, "value");

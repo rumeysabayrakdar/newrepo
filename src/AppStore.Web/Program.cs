@@ -15,7 +15,7 @@ builder.Configuration.Sources.Clear();
 builder.Configuration.SetBasePath(directory).AddJsonFile("appsettings.json", false, false)
     .AddJsonFile($"appsettings.{environment}.json", false, false).AddEnvironmentVariables()
     .AddInMemoryCollection(new Dictionary<string,string?> { ["AppStore:Environment"] = environment });
-builder.WebHost.ConfigureKestrel(options => { options.Limits.MaxRequestBodySize = 1_048_576; options.ListenAnyIP(builder.Configuration.GetValue<int?>("Hosting:Port") ?? 8080); });
+builder.WebHost.ConfigureKestrel(options => { options.Limits.MaxRequestBodySize = 16_777_216; options.ListenAnyIP(builder.Configuration.GetValue<int?>("Hosting:Port") ?? 8080); });
 if (environment == "Production")
 {
     var cidrs = builder.Configuration.GetSection("Authentication:TrustedProxyCidrs").Get<string[]>() ?? [];
@@ -26,7 +26,16 @@ var originPolicy = new RequestOriginPolicy(builder.Configuration["Hosting:Truste
 builder.Services.AddSingleton<GateIdentityService>();
 builder.Services.AddSingleton<AppStoreDatabase>();
 var app = builder.Build();
-try { await app.Services.GetRequiredService<AppStoreDatabase>().Initialize(); }
+try
+{
+    var database = app.Services.GetRequiredService<AppStoreDatabase>();
+    for (var attempt = 1; ; attempt++)
+    {
+        try { await database.Initialize(); break; }
+        catch (Npgsql.NpgsqlException error) when (error.IsTransient && attempt < 12)
+        { Console.Error.WriteLine("PostgreSQL is not ready; retrying startup."); await Task.Delay(2000); }
+    }
+}
 catch(Exception error) { Console.Error.WriteLine("Database startup failed: "+error.GetType().Name+" / "+(error is Npgsql.PostgresException pg?pg.SqlState:"")+" / "+error.StackTrace?.Split('\n').FirstOrDefault(line=>line.Contains("AppStore.Web"))); throw new InvalidOperationException("PostgreSQL could not initialize. Check the selected environment, database name and secure connection settings. No browser-storage fallback is used."); }
 var files = new PhysicalFileProvider(Path.Combine(directory, "wwwroot"));
 app.Use(async (context,next) =>
@@ -67,7 +76,7 @@ api.AddEndpointFilter(async(invocation,next)=>
     if(environment=="Test")
     {
         // Query selection is allowed only for Test navigation, never Production.
-        if(context.Request.Path.StartsWithSegments("/api/open"))
+        if((context.Request.Path.StartsWithSegments("/api/open") || context.Request.Path=="/api/experience/open"))
         {
             user=db.People.SingleOrDefault(p=>p.Id==context.Request.Query["testUser"])??throw new GateException(401,"test_account_required","Choose a Test account.");
         }
@@ -109,5 +118,18 @@ foreach(var collection in new[]{"links","documents"})
     var kind=collection;
     api.MapGet("/open/{id}/"+kind+"/{linkId}",async(string id,string linkId,HttpContext c,AppStoreDatabase db)=>Results.Redirect(await db.Open(User(c),id,kind,linkId,c.TraceIdentifier)));
 }
+// Approved UI endpoints reuse the existing identity/origin gate and PostgreSQL store.
+string? Persona(HttpContext c)=>c.Request.Headers["X-Test-Persona"].FirstOrDefault();
+api.MapGet("/experience",async(HttpContext c,AppStoreDatabase db)=>Results.Json(await db.ReadExperience(User(c),Persona(c))));
+api.MapPost("/experience/admin",async(HttpContext c,AppStoreDatabase db,JsonObject body)=>{await db.SaveExperience(User(c),Persona(c),body,c.TraceIdentifier);return Results.Json(await db.ReadExperience(User(c),Persona(c)));});
+api.MapPost("/experience/personal",async(HttpContext c,AppStoreDatabase db,JsonObject body)=>{await db.ChangePersonal(User(c),Persona(c),body);return Results.Json(await db.ReadExperience(User(c),Persona(c)));});
+api.MapPost("/experience/comments",async(HttpContext c,AppStoreDatabase db,JsonObject body)=>{await db.ExperienceComment(User(c),Persona(c),body,c.TraceIdentifier);return Results.Json(await db.ReadExperience(User(c),Persona(c)));});
+api.MapPost("/experience/feedback",async(HttpContext c,AppStoreDatabase db,JsonObject body)=>{await db.ExperienceFeedback(User(c),body,c.TraceIdentifier);return Results.Json(new {received=true});});
+api.MapPost("/experience/event",async(HttpContext c,AppStoreDatabase db,JsonObject body)=>{await db.Event(User(c),body["key"]?.GetValue<string>()??"activityView",body["entity"]?.GetValue<string>()??"",c.TraceIdentifier);return Results.NoContent();});
+api.MapGet("/experience/open",async(HttpContext c,AppStoreDatabase db)=>{
+    var actor=User(c);string? persona=Persona(c);
+    if(environment=="Test"&&c.Request.Query.ContainsKey("testUser")){actor=db.People.SingleOrDefault(p=>p.Id==c.Request.Query["testUser"])??throw new GateException(401,"test_account_required","Choose a TEST account.");persona=c.Request.Query["persona"];}
+    return Results.Redirect(await db.ExperienceOpen(actor,persona,c.Request.Query["resource"].ToString(),c.Request.Query["kind"],c.Request.Query["link"],c.TraceIdentifier));
+});
 app.Run();
 public sealed record SearchEvent(string? Term);

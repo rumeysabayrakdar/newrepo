@@ -69,6 +69,13 @@ public sealed partial class AppStoreDatabase
     (JsonObject Profile,bool Admin,string PersonalId) ExperienceIdentity(AppUser actor,JsonObject legacy,JsonObject model,string? persona)
     {
         var admin=Strings(legacy["admins"]).Contains(actor.Id);JsonObject profile=new(){["id"]=actor.Id,["name"]=actor.Name,["employeeId"]=actor.Id,["initials"]=string.Concat(actor.Name.Split(' ').Take(2).Select(x=>x.FirstOrDefault())).ToUpperInvariant(),["synthetic"]=false,["companyCode"]=actor.CompanyCode??"",["country"]=actor.Country??"",["mailGroups"]=new JsonArray((actor.Groups??[]).Select(g=>(JsonNode)JsonValue.Create(g)!).ToArray()),["site"]=actor.Site??""};
+        if(environment=="Test" && config["Authentication:Mode"]=="TestProfiles" && People.Any(p=>p.Id==actor.Id)
+            && model["builtInTestProfileDetails"] is JsonObject builtInDetails && builtInDetails[actor.Id] is JsonObject details)
+        {
+            foreach(var field in new[]{"employeeId","companyCode","employeeType"})
+                if(details[field] is JsonValue value && value.TryGetValue<string>(out var text))
+                    profile[field]=text;
+        }
         if(!string.IsNullOrEmpty(persona))
         {if(environment!="Test"||!admin)throw Error(403,"test_only","TEST profiles require a TEST administrator.");var p=Arr(model["testProfiles"]).OfType<JsonObject>().SingleOrDefault(x=>Text(x,"id")==persona)??throw Error(404,"profile_missing","TEST profile not found.");profile=p.DeepClone().AsObject();profile["synthetic"]=true;admin=Text(p,"testRole")=="admin";}
         return(profile,admin,actor.Id+(string.IsNullOrEmpty(persona)?"":"::"+persona));
@@ -92,6 +99,7 @@ public sealed partial class AppStoreDatabase
         model["admins"]=legacy["admins"]?.DeepClone()??new JsonArray();
         model["adminAssignments"]=new JsonArray(people.OfType<JsonObject>().Where(p=>Strings(legacy["admins"]).Contains(Text(p,"id"))).Select(p=>(JsonNode)new JsonObject{["employeeId"]=Text(p,"employeeId"),["profileId"]=Text(p,"id")}).ToArray());
         if(!admin){model["apps"]=new JsonArray(Arr(model["apps"]).OfType<JsonObject>().Where(a=>ExperienceActive(a)&&ExperienceVisible(a,profile)).Select(a=>a.DeepClone()).ToArray());model["webEntries"]=new JsonArray(Arr(model["webEntries"]).OfType<JsonObject>().Where(r=>ExperienceVisible(r,profile)).Select(r=>r.DeepClone()).ToArray());model["testProfiles"]=new JsonArray();model["adminAssignments"]=new JsonArray();}
+        if(!admin || environment!="Test" || config["Authentication:Mode"]!="TestProfiles")model.Remove("builtInTestProfileDetails");
         var personal=new JsonObject{["favorites"]=new JsonArray(),["likes"]=new JsonArray()};await using(var cmd=new NpgsqlCommand("SELECT payload::text FROM appstore.user_preferences WHERE user_id=@id",c,tx)){cmd.Parameters.AddWithValue("id",personalId);var raw=await cmd.ExecuteScalarAsync();if(raw is string json)personal=JsonNode.Parse(json)!.AsObject();}
         var audit=new JsonArray();var activity=new JsonArray();if(admin)foreach(var table in new[]{"admin_audit_logs","action_logs"}){await using var cmd=new NpgsqlCommand($"SELECT payload::text FROM appstore.{table} ORDER BY occurred_at DESC LIMIT 100",c,tx);await using var r=await cmd.ExecuteReaderAsync();while(await r.ReadAsync()){var row=JsonNode.Parse(r.GetString(0))!;var item=new JsonObject{["time"]=row["time"]?.DeepClone(),["person"]=row["actor"]?.DeepClone(),["key"]=row["action"]?.DeepClone(),["entity"]=row["entity"]?.DeepClone(),["outcome"]=row["after"]?["outcome"]?.DeepClone()};(table=="admin_audit_logs"?audit:activity).Add(item);}}
         var feedback=new JsonArray();if(admin){await using var q=new NpgsqlCommand("SELECT user_id,topic,message,created_at FROM appstore.feedback ORDER BY created_at DESC LIMIT 200",c,tx);await using var r=await q.ExecuteReaderAsync();while(await r.ReadAsync())feedback.Add(new JsonObject{["userId"]=r.GetString(0),["topic"]=r.GetString(1),["message"]=r.GetString(2),["time"]=r.GetDateTime(3).ToString("O")});}model["feedback"]=feedback;model["audit"]=audit;model["activity"]=activity;await tx.CommitAsync();
@@ -103,6 +111,7 @@ public sealed partial class AppStoreDatabase
         if(!admin)throw Error(403,"admin_required","Admin access is required.");if(command["revision"]?.GetValue<long>()!=rev)throw Error(409,"save_conflict","Someone else saved a change. Reload before saving again.");
         var next=Obj(command["data"]).DeepClone().AsObject();next["languages"]??=Languages(current).DeepClone();ValidateExperience(next);ValidateLanguages(next);
         if(environment!="Test"&&Arr(next["testProfiles"]).Count>0)throw Error(403,"test_only","TEST profiles cannot be used in Production.");
+        if(environment!="Test" || config["Authentication:Mode"]!="TestProfiles")next.Remove("builtInTestProfileDetails");
         var admins=Strings(next["admins"]);if(admins.Length==0||!admins.Contains(actor.Id))throw Error(409,"own_admin_protected","Keep your own Admin access and at least one Admin.");foreach(var id in admins)if(!await UserExists(c,tx,id))throw Error(400,"unknown_employee","Select a registered employee.");
         // Comments are owned by the comment endpoint; admin may only feature existing ones.
         foreach(var a in Arr(next["apps"]).OfType<JsonObject>()){var old=Arr(current["apps"]).OfType<JsonObject>().FirstOrDefault(x=>Text(x,"id")==Text(a,"id"));a["comments"]=old?["comments"]?.DeepClone()??new JsonArray();}

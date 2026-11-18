@@ -134,7 +134,7 @@ function App() {
       sessionStorage.setItem('arcelik-test-user', 'zeynep');
       location.reload();
     }
-  }, "Reset TEST account / TEST hesab\u0131n\u0131 s\u0131f\u0131rla")), React.createElement("div", {
+  }, "Reset Test account / Test hesab\u0131n\u0131 s\u0131f\u0131rla")), React.createElement("div", {
     ref: host,
     id: "experience-host"
   }, !error && React.createElement("p", {

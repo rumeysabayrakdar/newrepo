@@ -17,6 +17,6 @@ function App(){
  (async()=>{try{const response=await bridge.request('/api/experience');if(stopped)return;bridge.bootstrap=response;host.current.innerHTML=window.ARCELIK_TEMPLATE;dispose=window.mountArcelikExperience(host.current,bridge)}catch(e){if(!stopped){host.current.innerHTML='';setError(e.message)}}})();
  return ()=>{stopped=true;controller.abort();dispose?.();};
  },[attempt]);
- return <>{error&&<main className="boot-error"><h1>Arçelik App Store</h1><p role="alert">{error}</p><button onClick={()=>{setError('');retry(n=>n+1)}}>Retry / Yeniden dene</button>{runtime.environment==='Test'&&<button onClick={()=>{sessionStorage.removeItem('arcelik-test-persona');sessionStorage.setItem('arcelik-test-user','zeynep');location.reload()}}>Reset TEST account / TEST hesabını sıfırla</button>}</main>}<div ref={host} id="experience-host">{!error&&<p className="boot-loading">Arçelik App Store…</p>}</div></>;
+ return <>{error&&<main className="boot-error"><h1>Arçelik App Store</h1><p role="alert">{error}</p><button onClick={()=>{setError('');retry(n=>n+1)}}>Retry / Yeniden dene</button>{runtime.environment==='Test'&&<button onClick={()=>{sessionStorage.removeItem('arcelik-test-persona');sessionStorage.setItem('arcelik-test-user','zeynep');location.reload()}}>Reset Test account / Test hesabını sıfırla</button>}</main>}<div ref={host} id="experience-host">{!error&&<p className="boot-loading">Arçelik App Store…</p>}</div></>;
 }
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);

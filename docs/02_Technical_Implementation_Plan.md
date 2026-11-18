@@ -3,7 +3,7 @@ Version 3.4 · 18 November 2026 · HTML review 32 integration
 
 ## Stack and source
 .NET 10 Minimal API / Npgsql 10 / PostgreSQL, React shell compiled by Node >=22 and Babel. Dockerfile uses the existing approved Norm .NET base images and serves port 8080. No framework or database replacement.
-- app.jsx -> dist/app.js: authenticated bootstrap, retry, request/upload bridge and renderer lifecycle.
+- frontend/app.jsx → dist/app.js: authenticated bootstrap, retry, request/upload bridge and renderer lifecycle.
 - dist/experience-view.js: approved view mounted inside the React-owned subtree; shared operations call the API. AbortController cleans up delegated listeners.
 - dist/experience-template.js, experience.css, assets/: checked-in approved UI, local fonts and assets. npm build compiles the shell; the other view assets are already source/static build outputs.
 - src/AppStore.Web/Identity/GateIdentityService.cs: Norm forwarded identity contract.

@@ -1,21 +1,76 @@
-"""Create the deployable source ZIP; never package a database, secrets or build caches."""
+"""Package the deployable project and verify its contents."""
+
+import hashlib
+import subprocess
 from pathlib import Path
-import subprocess,hashlib,zipfile
-root=Path(__file__).resolve().parents[1]
-paths=subprocess.check_output(['git','ls-files','--cached','--others','--exclude-standard','-z'],cwd=root).decode().split('\0')
-blocked={'node_modules','bin','obj','.git','.openai','.secrets','downloads','attachments'}
-files=[]
-for name in sorted(set(paths)):
- p=Path(name)
- if not name or blocked.intersection(p.parts) or p.suffix=='.zip' or name=='PACKAGE-CONTENTS.sha256' or p.name.startswith('.env') and p.name!='.env.example' or p.name=='secrets.json':continue
- if (root/p).is_file():files.append(p)
-manifest=''.join(hashlib.sha256((root/p).read_bytes()).hexdigest()+'  '+p.as_posix()+'\n' for p in files)
-(root/'PACKAGE-CONTENTS.sha256').write_text(manifest)
-out=root/'downloads/Arcelik-AppStore-Admin-Update.zip'
-with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
- for p in files+[Path('PACKAGE-CONTENTS.sha256')]:z.write(root/p,p.as_posix())
-with zipfile.ZipFile(out) as z:
- assert z.testzip() is None
- for p in ['Dockerfile','dist/index.html','dist/admin-review.html','src/AppStore.Web/Program.cs','src/AppStore.Web/Database/ExperienceReports.cs','vendor/nuget/Npgsql.10.0.3.nupkg']:assert p in z.namelist(),p
- for p in files:assert hashlib.sha256(z.read(p.as_posix())).hexdigest()==hashlib.sha256((root/p).read_bytes()).hexdigest()
-print(f'Verified {len(files)+1} files; {out.stat().st_size:,} bytes; SHA256 {hashlib.sha256(out.read_bytes()).hexdigest()}')
+from zipfile import ZIP_DEFLATED, ZipFile
+
+ROOT = Path(__file__).resolve().parents[1]
+MANIFEST = Path("PACKAGE-CONTENTS.sha256")
+OUTPUT = ROOT / "downloads/Arcelik-AppStore-Admin-Update.zip"
+EXCLUDED_DIRECTORIES = {
+    ".git", ".openai", ".secrets", "attachments", "bin", "node_modules", "obj",
+}
+REQUIRED_FILES = {
+    "Dockerfile",
+    "dist/index.html",
+    "dist/admin-review.html",
+    "frontend/app.jsx",
+    "src/AppStore.Web/Program.cs",
+    "src/AppStore.Web/Database/ExperienceReports.cs",
+    "vendor/nuget/Npgsql.10.0.3.nupkg",
+}
+
+
+def include(path):
+    if path == MANIFEST or path.suffix == ".zip" or EXCLUDED_DIRECTORIES.intersection(path.parts):
+        return False
+    if path.name == "secrets.json" or path.name.endswith(".local.json"):
+        return False
+    if path.name.startswith(".env") and path.name != ".env.example":
+        return False
+    return (ROOT / path).is_file() and not (ROOT / path).is_symlink()
+
+
+def project_files():
+    output = subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+        cwd=ROOT,
+    )
+    names = set(output.decode().split("\0")) - {""}
+    return [path for name in sorted(names) if include(path := Path(name))]
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def build_package():
+    files = project_files()
+    checksums = {path.as_posix(): digest((ROOT / path).read_bytes()) for path in files}
+    missing = REQUIRED_FILES - checksums.keys()
+    if missing:
+        raise ValueError(f"Missing required files: {', '.join(sorted(missing))}")
+
+    (ROOT / MANIFEST).write_text(
+        "".join(f"{checksum}  {name}\n" for name, checksum in checksums.items()),
+        encoding="utf-8",
+    )
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    with ZipFile(OUTPUT, "w", ZIP_DEFLATED, compresslevel=9) as archive:
+        for path in [*files, MANIFEST]:
+            archive.write(ROOT / path, path.as_posix())
+
+    with ZipFile(OUTPUT) as archive:
+        corrupt = archive.testzip()
+        if corrupt:
+            raise ValueError(f"Corrupt archive entry: {corrupt}")
+        for name, checksum in checksums.items():
+            if digest(archive.read(name)) != checksum:
+                raise ValueError(f"Checksum mismatch: {name}")
+
+    print(f"Verified {len(files) + 1} files in {OUTPUT.name}")
+
+
+if __name__ == "__main__":
+    build_package()

@@ -1,4 +1,4 @@
-# Arçelik App Store — OneProject fixes
+# Arçelik App Store
 
 .NET 10 + React + PostgreSQL/Npgsql. Read START-HERE.md for the single HTML review and one-time backend upload steps. CHANGES.md describes the current admin, analytics, language and layout update.
 
@@ -13,3 +13,15 @@ The corrected Test public origin is https://appstore-x.norm.ar.arcelik, matching
 Live framework checks use tests/review-fixes.cjs against isolated .NET/PostgreSQL services on ports 18088 and 18091. They write only synthetic fixture data. See CHANGES.md for the checks actually performed. Full live Norm deployment, external APK installation and real Okta sign-in are not verified from this workspace.
 
 Admin reporting uses PostgreSQL action/audit logs with date/search/filter/paging. Additional languages are registered in experience_state and fall back to English; they are not restricted to EN/TR. Run tests/admin-upgrade.cjs against a fresh isolated Test database, and tests/html-review.cjs for the offline HTML. Build that HTML with python scripts/build-html.py.
+
+## Source Layout
+
+| Path | Purpose |
+| --- | --- |
+| `frontend/` | Frontend source for the React bootstrap, catalogue renderer, and styles |
+| `src/AppStore.Web/` | ASP.NET Core API, identity, PostgreSQL schema, and seed data |
+| `scripts/` | Frontend build, standalone HTML preview, and ZIP packaging |
+| `tests/` | Browser-preview and database-backed workflow checks |
+| `dist/` | Deployable frontend output, assets, and bundled libraries |
+
+Run `npm ci` and `npm run build` after editing frontend source. Run `python scripts/build-html.py` to refresh the standalone preview. Generated files in `dist/` are included for deployment, so the container build only needs .NET.

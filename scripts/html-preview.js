@@ -1,23 +1,459 @@
 // Local HTML review adapter. HTTP-hosted HTML uses the real .NET API instead.
-(()=>{
-'use strict';
-const KEY='arcelik-html-review-v2',WHO='arcelik-html-review-person';
-const people=[{id:'zeynep',name:'Zeynep',employeeId:'10002',initials:'ZA',synthetic:true},{id:'rumeysa',name:'Rümeysa',employeeId:'10001',initials:'RB',synthetic:true}];
-const clone=x=>structuredClone(x);let store,bridge,dispose,db;const urls=new Map();
-function persist(next=store){localStorage.setItem(KEY,JSON.stringify(next));store=next}
-function identity(){const id=sessionStorage.getItem(WHO)||'zeynep';const profile=people.find(p=>p.id===id)||store.data.testProfiles?.find(p=>p.id===id)||people[0];const synthetic=!people.some(p=>p.id===profile.id);return {profile,admin:synthetic?profile.testRole==='admin':store.data.admins.includes(profile.id)}}
-function snapshot(){const {profile,admin}=identity(),data=clone(store.data);data.audit=admin?clone(store.audit):[];data.activity=admin?clone(store.activity):[];data.feedback=admin?clone(store.feedback):[];if(!admin){data.apps=data.apps.filter(a=>a.active!==false&&!a.archived);data.webEntries=data.webEntries.filter(a=>!a.targetLocation||a.targetLocation===profile.site);data.testProfiles=[];data.adminAssignments=[]}return {data,revision:store.revision,profile:clone(profile),actor:clone(profile),isAdmin:admin,personal:clone(store.personal[profile.id]||{favorites:[],likes:[]}),people:clone(people),environment:'Test',authMode:'TestProfiles'}}
-function event(next,key,entity='',admin=false,outcome=''){const row={id:crypto.randomUUID(),time:new Date().toISOString(),person:identity().profile.name,userId:identity().profile.id,key,entity,outcome,details:{}};(admin?next.audit:next.activity).unshift(row);next.audit=next.audit.slice(0,500);next.activity=next.activity.slice(0,500)}
-async function request(path,body){if(!body)return path.includes('/report?')?report(path):snapshot();const next=clone(store),{profile,admin}=identity();if(path.endsWith('/admin')){if(!admin)throw Error('Choose the Admin preview account to make changes.');if(body.revision!==store.revision)throw Error('This preview changed in another tab. Refresh before saving.');if(!Array.isArray(body.data?.apps)||!Array.isArray(body.data?.categories))throw Error('Invalid catalogue.');const data=clone(body.data);if(!data.admins?.length)throw Error('Keep at least one Admin.');for(const field of ['audit','activity','feedback'])delete data[field];next.data=data;next.revision++;event(next,body.action||'applicationEdited',body.entity||'',true);next.audit[0].details.changedSections=Object.keys(data).filter(k=>JSON.stringify(data[k])!==JSON.stringify(store.data[k]))}else if(path.endsWith('/personal')){if(!['favorites','likes'].includes(body.key))throw Error('Unknown preference.');const mine=next.personal[profile.id]??={favorites:[],likes:[]};mine[body.key]=mine[body.key].filter(v=>v!==body.id);if(body.selected)mine[body.key].push(body.id)}else if(path.endsWith('/comments')){const text=String(body.text||'').trim();if(!text||text.length>300)throw Error('Write a comment up to 300 characters.');const app=next.data.apps.find(a=>a.id===body.appId&&a.active!==false&&!a.archived);if(!app)throw Error('Application unavailable.');app.comments??=[];app.comments.push({id:crypto.randomUUID(),author:profile.name,time:new Date().toISOString(),language:body.language,text:{[body.language]:text}});next.revision++;event(next,'commentAdded',body.appId)}else if(path.endsWith('/feedback')){if(!body.message?.trim())throw Error('Enter a message.');next.feedback.unshift({userId:profile.id,topic:body.topic,message:body.message,time:new Date().toISOString()});event(next,'feedbackReceived',body.topic)}else if(path.endsWith('/event')){event(next,body.key,body.entity)}else throw Error('This operation requires the Norm backend.');persist(next);return snapshot()}
+(() => {
+  'use strict';
+  const KEY = 'arcelik-html-review-v2',
+    WHO = 'arcelik-html-review-person';
+  const people = [
+    {
+      id: 'zeynep',
+      name: 'Zeynep',
+      employeeId: '10002',
+      initials: 'ZA',
+      synthetic: true,
+    },
+    {
+      id: 'rumeysa',
+      name: 'Rümeysa',
+      employeeId: '10001',
+      initials: 'RB',
+      synthetic: true,
+    },
+  ];
+  const clone = (x) => structuredClone(x);
+  let store, bridge, dispose, db;
+  const urls = new Map();
+  function persist(next = store) {
+    localStorage.setItem(KEY, JSON.stringify(next));
+    store = next;
+  }
+  function identity() {
+    const id = sessionStorage.getItem(WHO) || 'zeynep';
+    const base = people.find((p) => p.id === id);
+    const profile = base
+      ? { ...base, ...store.data.builtInTestProfileDetails?.[id] }
+      : store.data.testProfiles?.find((p) => p.id === id) || people[0];
+    const synthetic = !people.some((p) => p.id === profile.id);
+    return {
+      profile,
+      admin: synthetic
+        ? profile.testRole === 'admin'
+        : store.data.admins.includes(profile.id),
+    };
+  }
+  function snapshot() {
+    const { profile, admin } = identity(),
+      data = clone(store.data);
+    data.audit = admin ? clone(store.audit) : [];
+    data.activity = admin ? clone(store.activity) : [];
+    data.feedback = admin ? clone(store.feedback) : [];
+    if (!admin) {
+      data.apps = data.apps.filter((a) => a.active !== false && !a.archived);
+      data.webEntries = data.webEntries.filter(
+        (a) => !a.targetLocation || a.targetLocation === profile.site,
+      );
+      data.testProfiles = [];
+      data.adminAssignments = [];
+    }
+    return {
+      data,
+      revision: store.revision,
+      profile: clone(profile),
+      actor: clone(profile),
+      isAdmin: admin,
+      personal: clone(
+        store.personal[profile.id] || { favorites: [], likes: [] },
+      ),
+      people: clone(people),
+      environment: 'Test',
+      authMode: 'TestProfiles',
+    };
+  }
+  function event(next, key, entity = '', admin = false, outcome = '') {
+    const row = {
+      id: crypto.randomUUID(),
+      time: new Date().toISOString(),
+      person: identity().profile.name,
+      userId: identity().profile.id,
+      key,
+      entity,
+      outcome,
+      details: {},
+    };
+    (admin ? next.audit : next.activity).unshift(row);
+    next.audit = next.audit.slice(0, 500);
+    next.activity = next.activity.slice(0, 500);
+  }
+  async function request(path, body) {
+    if (!body) return path.includes('/report?') ? report(path) : snapshot();
+    const next = clone(store),
+      { profile, admin } = identity();
+    if (path.endsWith('/admin')) {
+      if (!admin)
+        throw Error('Choose the Admin preview account to make changes.');
+      if (body.revision !== store.revision)
+        throw Error(
+          'This preview changed in another tab. Refresh before saving.',
+        );
+      if (
+        !Array.isArray(body.data?.apps) ||
+        !Array.isArray(body.data?.categories)
+      )
+        throw Error('Invalid catalogue.');
+      const data = clone(body.data);
+      if (!data.admins?.length) throw Error('Keep at least one Admin.');
+      for (const field of ['audit', 'activity', 'feedback']) delete data[field];
+      next.data = data;
+      next.revision++;
+      event(next, body.action || 'applicationEdited', body.entity || '', true);
+      next.audit[0].details.changedSections = Object.keys(data).filter(
+        (k) => JSON.stringify(data[k]) !== JSON.stringify(store.data[k]),
+      );
+    } else if (path.endsWith('/personal')) {
+      if (!['favorites', 'likes'].includes(body.key))
+        throw Error('Unknown preference.');
+      const mine = (next.personal[profile.id] ??= { favorites: [], likes: [] });
+      mine[body.key] = mine[body.key].filter((v) => v !== body.id);
+      if (body.selected) mine[body.key].push(body.id);
+    } else if (path.endsWith('/comments')) {
+      const text = String(body.text || '').trim();
+      if (!text || text.length > 300)
+        throw Error('Write a comment up to 300 characters.');
+      const app = next.data.apps.find(
+        (a) => a.id === body.appId && a.active !== false && !a.archived,
+      );
+      if (!app) throw Error('Application unavailable.');
+      app.comments ??= [];
+      app.comments.push({
+        id: crypto.randomUUID(),
+        author: profile.name,
+        time: new Date().toISOString(),
+        language: body.language,
+        text: { [body.language]: text },
+      });
+      next.revision++;
+      event(next, 'commentAdded', body.appId);
+    } else if (path.endsWith('/feedback')) {
+      if (!body.message?.trim()) throw Error('Enter a message.');
+      next.feedback.unshift({
+        userId: profile.id,
+        topic: body.topic,
+        message: body.message,
+        time: new Date().toISOString(),
+      });
+      event(next, 'feedbackReceived', body.topic);
+    } else if (path.endsWith('/event')) {
+      event(next, body.key, body.entity);
+    } else throw Error('This operation requires the Norm backend.');
+    persist(next);
+    return snapshot();
+  }
 
-function report(path){if(!identity().admin)throw Error('Admin access required.');const p=new URL(path,'https://local.invalid').searchParams,kind=p.get('kind')||'overview',from=p.get('from')||'1970',to=p.get('to')||'9999',within=e=>new Date(e.time)>=new Date(from)&&new Date(e.time)<new Date(to),events=(kind==='audit'?store.audit:kind==='activity'?store.activity:[...store.activity,...store.audit]).filter(within),q=(p.get('q')||'').toLowerCase();const rows=events.filter(e=>(!p.get('user')||e.userId===p.get('user'))&&(!p.get('action')||e.key===p.get('action'))&&(!p.get('entity')||e.entity===p.get('entity'))&&(!p.get('outcome')||e.outcome===p.get('outcome'))&&(!q||[e.userId,e.person,e.key,e.entity,e.outcome].join(' ').toLowerCase().includes(q))),page=Math.max(1,Number(p.get('page'))||1),unique=k=>[...new Set(events.map(e=>e[k]).filter(Boolean))];const active=store.data.apps.filter(a=>a.active!==false&&!a.archived),accepted=store.activity.filter(within).filter(e=>['redirect_issued','file_requested'].includes(e.outcome)),downloads=accepted.filter(e=>e.details.resourceType==='download'),by={};for(const e of downloads)by[e.entity]=(by[e.entity]||0)+1;const daily={};for(const e of store.activity.filter(within))daily[e.time.slice(0,10)]=(daily[e.time.slice(0,10)]||0)+1;return {source:'browser-preview',generatedAt:new Date().toISOString(),total:rows.length,page,pageSize:50,items:rows.slice((page-1)*50,page*50),users:unique('userId').map(id=>({id,name:events.find(e=>e.userId===id)?.person||id})),actions:unique('key'),entities:unique('entity'),outcomes:unique('outcome'),downloadRequests:downloads.length,webVisits:accepted.filter(e=>['web','portal'].includes(e.details.resourceType)).length,activeApplications:active.length,readyApplications:active.filter(a=>a.links?.some(l=>!l.pending&&l.url)).length,byApplication:Object.entries(by).map(([resource,count])=>({resource,count})).sort((a,b)=>b.count-a.count).slice(0,10),daily:Object.entries(daily).sort().map(([day,count])=>({day,count}))}}
-document.addEventListener('click',e=>{const a=e.target.closest('a[href^="#html-open="]');if(!a)return;e.preventDefault();const {resource,kind,link}=JSON.parse(decodeURIComponent(a.getAttribute('href').split('=')[1])),[type,id]=resource.split(':');let item=type==='app'?store.data.apps.find(a=>a.id===id):store.data.webEntries.find(a=>a.id===id)||store.data.webPortal;const destination=kind==='link'?item?.links?.find(l=>l.id===link):kind==='document'?item?.documents?.find(l=>l.id===link):item?.links?.find(l=>l.platform==='Web')||item;let url=destination?.url;if(destination?.pending||!url)return alert('No ready destination for this item.');const next=clone(store),resourceType=type==='app'&&!item.platforms.every(p=>p==='Web')?'download':id==='behome'?'portal':'web';event(next,'linkOpened',resource,false,url.startsWith('apk:')?'file_requested':'redirect_issued');next.activity[0].details={resourceType};persist(next);if(url.startsWith('apk:'))url='/api/experience/packages/'+url.slice(4);url=urls.get(url)||url;if(!url.startsWith('https://')&&!url.startsWith('blob:'))return alert('This file needs the Norm backend.');window.open(url,'_blank','noopener,noreferrer')});
+  function report(path) {
+    if (!identity().admin) throw Error('Admin access required.');
+    const p = new URL(path, 'https://local.invalid').searchParams,
+      kind = p.get('kind') || 'overview',
+      from = p.get('from') || '1970',
+      to = p.get('to') || '9999',
+      within = (e) =>
+        new Date(e.time) >= new Date(from) && new Date(e.time) < new Date(to),
+      events = (
+        kind === 'audit'
+          ? store.audit
+          : kind === 'activity'
+            ? store.activity
+            : [...store.activity, ...store.audit]
+      ).filter(within),
+      q = (p.get('q') || '').toLowerCase();
+    const rows = events.filter(
+        (e) =>
+          (!p.get('user') || e.userId === p.get('user')) &&
+          (!p.get('action') || e.key === p.get('action')) &&
+          (!p.get('entity') || e.entity === p.get('entity')) &&
+          (!p.get('outcome') || e.outcome === p.get('outcome')) &&
+          (!q ||
+            [e.userId, e.person, e.key, e.entity, e.outcome]
+              .join(' ')
+              .toLowerCase()
+              .includes(q)),
+      ),
+      page = Math.max(1, Number(p.get('page')) || 1),
+      unique = (k) => [...new Set(events.map((e) => e[k]).filter(Boolean))];
+    const active = store.data.apps.filter(
+        (a) => a.active !== false && !a.archived,
+      ),
+      accepted = store.activity
+        .filter(within)
+        .filter((e) =>
+          ['redirect_issued', 'file_requested'].includes(e.outcome),
+        ),
+      downloads = accepted.filter((e) => e.details.resourceType === 'download'),
+      by = {};
+    for (const e of downloads) by[e.entity] = (by[e.entity] || 0) + 1;
+    const daily = {};
+    for (const e of store.activity.filter(within))
+      daily[e.time.slice(0, 10)] = (daily[e.time.slice(0, 10)] || 0) + 1;
+    return {
+      source: 'browser-preview',
+      generatedAt: new Date().toISOString(),
+      total: rows.length,
+      page,
+      pageSize: 50,
+      items: rows.slice((page - 1) * 50, page * 50),
+      users: unique('userId').map((id) => ({
+        id,
+        name: events.find((e) => e.userId === id)?.person || id,
+      })),
+      actions: unique('key'),
+      entities: unique('entity'),
+      outcomes: unique('outcome'),
+      downloadRequests: downloads.length,
+      webVisits: accepted.filter((e) =>
+        ['web', 'portal'].includes(e.details.resourceType),
+      ).length,
+      activeApplications: active.length,
+      readyApplications: active.filter((a) =>
+        a.links?.some((l) => !l.pending && l.url),
+      ).length,
+      byApplication: Object.entries(by)
+        .map(([resource, count]) => ({ resource, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10),
+      daily: Object.entries(daily)
+        .sort()
+        .map(([day, count]) => ({ day, count })),
+    };
+  }
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#html-open="]');
+    if (!a) return;
+    e.preventDefault();
+    const { resource, kind, link } = JSON.parse(
+        decodeURIComponent(a.getAttribute('href').split('=')[1]),
+      ),
+      [type, id] = resource.split(':');
+    let item =
+      type === 'app'
+        ? store.data.apps.find((a) => a.id === id)
+        : store.data.webEntries.find((a) => a.id === id) ||
+          store.data.webPortal;
+    const destination =
+      kind === 'link'
+        ? item?.links?.find((l) => l.id === link)
+        : kind === 'document'
+          ? item?.documents?.find((l) => l.id === link)
+          : item?.links?.find((l) => l.platform === 'Web') || item;
+    let url = destination?.url;
+    if (destination?.pending || !url)
+      return alert('No ready destination for this item.');
+    const next = clone(store),
+      resourceType =
+        type === 'app' && !item.platforms.every((p) => p === 'Web')
+          ? 'download'
+          : id === 'behome'
+            ? 'portal'
+            : 'web';
+    event(
+      next,
+      'linkOpened',
+      resource,
+      false,
+      url.startsWith('apk:') ? 'file_requested' : 'redirect_issued',
+    );
+    next.activity[0].details = { resourceType };
+    persist(next);
+    if (url.startsWith('apk:'))
+      url = '/api/experience/packages/' + url.slice(4);
+    url = urls.get(url) || url;
+    if (!url.startsWith('https://') && !url.startsWith('blob:'))
+      return alert('This file needs the Norm backend.');
+    window.open(url, '_blank', 'noopener,noreferrer');
+  });
 
-function openDatabase(){return new Promise((resolve,reject)=>{const r=indexedDB.open('arcelik-html-review-files',1);r.onupgradeneeded=()=>r.result.createObjectStore('files',{keyPath:'id'});r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(Error('Browser file storage is unavailable.'))})}
-function files(operation){return new Promise((resolve,reject)=>{const tx=db.transaction('files',operation==='read'?'readonly':'readwrite');const s=tx.objectStore('files');const r=operation==='read'?s.getAll():operation==='clear'?s.clear():s.put(operation);let result;r.onsuccess=()=>{result=r.result};tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(Error('Could not save the preview file. Browser storage may be full.'))})}
-async function upload(file,kind){if(!identity().admin)throw Error('Admin preview access required.');const apk=kind==='packages',limit=apk?100*1024*1024:10*1024*1024;if(!file.size||file.size>limit)throw Error('Choose a file below '+(apk?'100':'10')+' MB.');if(apk&&!file.name.toLowerCase().endsWith('.apk'))throw Error('Choose an APK file.');if(!apk&&!/\.(png|jpe?g|webp|pdf|docx?|xlsx?)$/i.test(file.name))throw Error('Choose an image, PDF or Office document.');const id=crypto.randomUUID(),url='/api/experience/'+kind+'/'+id;await files({id,url,name:file.name,blob:file});urls.set(url,URL.createObjectURL(file));return {id,url,fileName:file.name,name:file.name,type:file.type,size:file.size}}
-async function boot(){let seed=clone(window.ARCELIK_HTML_SEED);let saved;try{saved=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}store=saved?.version===1?saved:{version:1,data:seed,revision:1,personal:{},audit:[],activity:[],feedback:[]};store.data.languages??=[{code:'en',name:'English'},{code:'tr',name:'Türkçe'}];store.data.fallbackLanguage='en';store.data.admins??=['zeynep'];if(!store.data.adminAssignments?.length)store.data.adminAssignments=store.data.admins.map(id=>({profileId:id,employeeId:people.find(p=>p.id===id)?.employeeId||id}));persist();try{db=await openDatabase();for(const f of await files('read'))urls.set(f.url,URL.createObjectURL(f.blob))}catch{}bridge={bootstrap:snapshot(),request,upload:(f,k='packages')=>db?upload(f,k):Promise.reject(Error('Browser file storage is unavailable.')),filePath:url=>urls.get(url)||url,openPath:(resource,kind='',link='')=>'#html-open='+encodeURIComponent(JSON.stringify({resource,kind,link})),switchProfile:id=>{sessionStorage.setItem(WHO,id);location.reload()}};return bridge}
-window.addEventListener('storage',e=>{if(e.key===KEY){try{store=JSON.parse(e.newValue)}catch{}}});
-function App(){const host=React.useRef(null),[error,E]=React.useState('');React.useEffect(()=>{let stop=false;boot().then(b=>{if(stop)return;host.current.innerHTML=window.ARCELIK_TEMPLATE;dispose=window.mountArcelikExperience(host.current,b)}).catch(e=>E(e.message));return()=>{stop=true;dispose?.()}},[]);return React.createElement(React.Fragment,null,React.createElement('aside',{className:'preview-bar'},React.createElement('div',null,React.createElement('strong',null,'INTERACTIVE PREVIEW · ÖNİZLEME'),React.createElement('span',null,' Sample data · Saves stay in this browser · No PostgreSQL / Okta connection · open on Norm for live data')),React.createElement('button',{onClick:async()=>{if(!confirm('Reset only this browser preview? Your Norm project is unaffected.'))return;localStorage.removeItem(KEY);sessionStorage.removeItem(WHO);if(db)await files('clear');location.reload()}},'Reset preview')),error?React.createElement('div',{role:'alert',className:'boot-error'},error):null,React.createElement('div',{ref:host,id:'experience-host'},'Loading preview…'))}
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+  function openDatabase() {
+    return new Promise((resolve, reject) => {
+      const r = indexedDB.open('arcelik-html-review-files', 1);
+      r.onupgradeneeded = () =>
+        r.result.createObjectStore('files', { keyPath: 'id' });
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(Error('Browser file storage is unavailable.'));
+    });
+  }
+  function files(operation) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(
+        'files',
+        operation === 'read' ? 'readonly' : 'readwrite',
+      );
+      const s = tx.objectStore('files');
+      const r =
+        operation === 'read'
+          ? s.getAll()
+          : operation === 'clear'
+            ? s.clear()
+            : s.put(operation);
+      let result;
+      r.onsuccess = () => {
+        result = r.result;
+      };
+      tx.oncomplete = () => resolve(result);
+      tx.onerror = () =>
+        reject(
+          Error(
+            'Could not save the preview file. Browser storage may be full.',
+          ),
+        );
+    });
+  }
+  async function upload(file, kind) {
+    if (!identity().admin) throw Error('Admin preview access required.');
+    const apk = kind === 'packages',
+      limit = apk ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (!file.size || file.size > limit)
+      throw Error('Choose a file below ' + (apk ? '100' : '10') + ' MB.');
+    if (apk && !file.name.toLowerCase().endsWith('.apk'))
+      throw Error('Choose an APK file.');
+    if (!apk && !/\.(png|jpe?g|webp|pdf|docx?|xlsx?)$/i.test(file.name))
+      throw Error('Choose an image, PDF or Office document.');
+    const id = crypto.randomUUID(),
+      url = '/api/experience/' + kind + '/' + id;
+    await files({ id, url, name: file.name, blob: file });
+    urls.set(url, URL.createObjectURL(file));
+    return {
+      id,
+      url,
+      fileName: file.name,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    };
+  }
+  async function boot() {
+    let seed = clone(window.ARCELIK_HTML_SEED);
+    let saved;
+    try {
+      saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    } catch {}
+    store =
+      saved?.version === 1
+        ? saved
+        : {
+            version: 1,
+            data: seed,
+            revision: 1,
+            personal: {},
+            audit: [],
+            activity: [],
+            feedback: [],
+          };
+    store.data.languages ??= [
+      { code: 'en', name: 'English' },
+      { code: 'tr', name: 'Türkçe' },
+    ];
+    store.data.fallbackLanguage = 'en';
+    store.data.admins ??= ['zeynep'];
+    if (!store.data.adminAssignments?.length)
+      store.data.adminAssignments = store.data.admins.map((id) => ({
+        profileId: id,
+        employeeId: people.find((p) => p.id === id)?.employeeId || id,
+      }));
+    persist();
+    try {
+      db = await openDatabase();
+      for (const f of await files('read'))
+        urls.set(f.url, URL.createObjectURL(f.blob));
+    } catch {}
+    bridge = {
+      bootstrap: snapshot(),
+      request,
+      upload: (f, k = 'packages') =>
+        db
+          ? upload(f, k)
+          : Promise.reject(Error('Browser file storage is unavailable.')),
+      filePath: (url) => urls.get(url) || url,
+      openPath: (resource, kind = '', link = '') =>
+        '#html-open=' +
+        encodeURIComponent(JSON.stringify({ resource, kind, link })),
+      switchProfile: (id) => {
+        sessionStorage.setItem(WHO, id);
+        location.reload();
+      },
+    };
+    return bridge;
+  }
+  window.addEventListener('storage', (e) => {
+    if (e.key === KEY) {
+      try {
+        store = JSON.parse(e.newValue);
+      } catch {}
+    }
+  });
+  function App() {
+    const host = React.useRef(null),
+      [error, E] = React.useState('');
+    React.useEffect(() => {
+      let stop = false;
+      boot()
+        .then((b) => {
+          if (stop) return;
+          host.current.innerHTML = window.ARCELIK_TEMPLATE;
+          dispose = window.mountArcelikExperience(host.current, b);
+        })
+        .catch((e) => E(e.message));
+      return () => {
+        stop = true;
+        dispose?.();
+      };
+    }, []);
+    return React.createElement(
+      React.Fragment,
+      null,
+      React.createElement(
+        'aside',
+        { className: 'preview-bar' },
+        React.createElement(
+          'div',
+          null,
+          React.createElement('strong', null, 'INTERACTIVE PREVIEW · ÖNİZLEME'),
+          React.createElement(
+            'span',
+            null,
+            ' Sample data · Saves stay in this browser · No PostgreSQL / Okta connection · open on Norm for live data',
+          ),
+        ),
+        React.createElement(
+          'button',
+          {
+            onClick: async () => {
+              if (
+                !confirm(
+                  'Reset only this browser preview? Your Norm project is unaffected.',
+                )
+              )
+                return;
+              localStorage.removeItem(KEY);
+              sessionStorage.removeItem(WHO);
+              if (db) await files('clear');
+              location.reload();
+            },
+          },
+          'Reset preview',
+        ),
+      ),
+      error
+        ? React.createElement(
+            'div',
+            { role: 'alert', className: 'boot-error' },
+            error,
+          )
+        : null,
+      React.createElement(
+        'div',
+        { ref: host, id: 'experience-host' },
+        'Loading preview…',
+      ),
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    React.createElement(App),
+  );
 })();

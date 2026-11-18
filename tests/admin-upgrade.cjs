@@ -1,27 +1,318 @@
-const assert=require('node:assert/strict'),{JSDOM}=require('jsdom'),fs=require('fs');const base='http://127.0.0.1:18088',origin='https://appstore-x.norm.ar.arcelik',windows=[];
-async function req(path,body,user='zeynep'){const r=await fetch(base+path,{method:body?'POST':'GET',redirect:'manual',headers:{'X-Test-User':user,...(body?{'Content-Type':'application/json',Origin:origin}:{})},...(body?{body:JSON.stringify(body)}:{})});let data;try{data=await r.json()}catch{}return {status:r.status,data}}
-async function state(){const r=await req('/api/experience');assert.equal(r.status,200);return r.data}
-async function save(data,action='changeApp',entity='fixture'){const s=await state(),r=await req('/api/experience/admin',{data,revision:s.revision,action,entity});assert.equal(r.status,200,JSON.stringify(r));return r.data}
-const pause=()=>new Promise(r=>setTimeout(r,35));async function until(fn){for(let i=0;i<160;i++){if(fn())return;await pause()}throw Error('UI timeout')}
-async function launch(){const d=new JSDOM(fs.readFileSync('dist/index.html','utf8'),{url:base,runScripts:'outside-only'}),w=d.window;windows.push(w);w.structuredClone=structuredClone;w.matchMedia=()=>({matches:false});w.scrollTo=()=>{};w.confirm=()=>true;w.HTMLElement.prototype.scrollIntoView=()=>{};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};w.fetch=(p,o={})=>fetch(new URL(p,base),{...o,headers:{...o.headers,Origin:origin},signal:undefined});w.eval(await(await fetch(base+'/runtime-config.js')).text());for(const f of ['react.js','react-dom.js','experience-template.js','experience-view.js','app.js']){w.eval(fs.readFileSync('dist/'+f,'utf8'));if(f==='experience-view.js'){const mount=w.mountArcelikExperience;w.mountArcelikExperience=(...args)=>{try{return mount(...args)}catch(e){console.error('MOUNT ERROR',e.stack);throw e}}}}await until(()=>w.document.querySelector('.topbar'));return w}
-function change(w,e,value){const type=e.tagName==='SELECT'?w.HTMLSelectElement:e.tagName==='TEXTAREA'?w.HTMLTextAreaElement:w.HTMLInputElement;Object.getOwnPropertyDescriptor(type.prototype,'value').set.call(e,value);e.dispatchEvent(new w.Event(e.tagName==='SELECT'?'change':'input',{bubbles:true}))}
-(async()=>{
-if(!process.env.UI_ONLY){const zero=await req('/api/experience/report?kind=overview');assert.equal(zero.status,200);assert.equal(zero.data.downloadRequests,0);assert.equal(zero.data.webVisits,0);assert.equal((await req('/api/experience/report?kind=overview',null,'rumeysa')).status,403);
-let s=await state(),data=s.data;data.languages.push({code:'es',name:'Español'},{code:'it',name:'Italiano'},{code:'pl',name:'Polski'});for(const l of ['es','it','pl'])data.uiOverrides[l]={};data.uiOverrides.es.catalogue='Catálogo de aplicaciones';data.apps.find(a=>a.id==='pa').es={name:'Academia de venta',description:'Descripción de prueba'};const a=data.apps.find(a=>a.id==='pa');a.links[0].url='https://downloads.example.test/retail.apk';a.links[0].pending=false;const link=a.links[0].id;await save(data,'languageAdded','es,it,pl');
-for(let i=0;i<2;i++)assert.equal((await req('/api/experience/open?resource=app%3Apa&kind=link&link='+link+'&testUser=rumeysa')).status,302);
-for(const resource of ['web:atlas','web:behome'])assert.equal((await req('/api/experience/open?resource='+encodeURIComponent(resource)+'&testUser=rumeysa')).status,302);
-assert.equal((await req('/api/experience/open?resource=app%3Apa&kind=link&link=missing&testUser=rumeysa')).status,404);
-for(let i=0;i<70;i++)assert.equal((await req('/api/experience/event',{key:'activitySearch',entity:'needle-'+i},'rumeysa')).status,204);
-const report=(await req('/api/experience/report?kind=overview')).data;assert.equal(report.source,'postgresql');assert.equal(report.downloadRequests,2);assert.equal(report.webVisits,2);assert.equal(report.byApplication[0].count,2);
-const logs=(await req('/api/experience/report?kind=activity&q=needle&user=rumeysa&action=activitySearch')).data;assert.equal(logs.total,70);assert.equal(logs.items.length,50);const second=(await req('/api/experience/report?kind=activity&q=needle&user=rumeysa&action=activitySearch&page=2')).data;assert.equal(second.items.length,20);assert(!second.items.some(x=>logs.items.some(y=>x.id===y.id)));
-assert.equal((await req('/api/experience/report?kind=activity&outcome=blocked')).data.total,1);assert.equal((await req('/api/experience/report?kind=activity&q='+encodeURIComponent("' OR true --"))).data.total,0);
-assert.equal((await req('/api/experience/report?kind=overview&from=2040-01-01&to=2040-02-01')).data.downloadRequests,0);
-assert.equal((await req('/api/experience/comments',{appId:'pa',language:'pl',text:'Działa poprawnie'},'rumeysa')).status,200);
-const history=(await req('/api/experience/report?kind=audit&action=languageAdded')).data;assert.equal(history.total,1);assert(history.items[0].details.changedSections.includes('languages'));
-}const w=await launch(),q=s=>w.document.querySelector(s);change(w,q('[data-ui-language]'),'es');await until(()=>q('#catalogue-title')?.textContent.includes('Catálogo'));assert(q('.hero h1').textContent.includes('Your everyday work.'));assert(w.document.body.textContent.includes('Academia de venta'));
-change(w,q('[data-ui-language]'),'en');await pause();q('[data-manage]').click();await until(()=>q('.dashboard-stats'));assert(!w.document.body.textContent.includes('1,284'));assert(q('.report-origin').textContent.includes('PostgreSQL'));
-q('[data-admin-tab="activity"]').click();await until(()=>q('.report-table'));const search=q('#report-filters [name=q]');change(w,search,'needle-69');q('#report-filters').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await until(()=>q('.report-table tbody')?.textContent.includes('needle-69'));assert.equal(q('.report-table tbody').querySelectorAll('tr').length,1);
-q('[data-admin-group="appearance"]').click();await pause();q('[data-admin-tab="languages"]').click();await until(()=>q('#add-language'));change(w,q('#add-language [name=name]'),'Deutsch');change(w,q('#add-language [name=code]'),'de');q('#add-language').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await until(()=>[...q('#translation-language').options].some(o=>o.value==='de'));assert.equal(q('#translation-language').value,'de');const field=[...w.document.querySelectorAll('[data-i18n-input]')].find(e=>e.dataset.i18nInput==='ui:catalogue');change(w,field,'Anwendungskatalog');[...w.document.querySelectorAll('[data-save-i18n]')].find(e=>e.dataset.saveI18n==='ui:catalogue').click();await until(()=>JSON.parse(JSON.stringify(w.document.body.textContent)).includes('Anwendungskatalog'));let saved=await state();for(let i=0;i<50&&saved.data.uiOverrides.de?.catalogue!=='Anwendungskatalog';i++){await pause();saved=await state()}assert.equal(saved.data.uiOverrides.de.catalogue,'Anwendungskatalog');
-q('[data-admin-group="access"]').click();await until(()=>q('#grant-admin'));assert(q('#grant-admin [name=user]'));q('[data-admin-tab="testProfiles"]').click();await until(()=>q('.test-profile-grid'));q('[data-edit="testProfile"]').click();await until(()=>q('#editor-form select[name=employeeType]'));assert(q('#editor-form [name=companyCode]'));assert.equal(q('#editor-form [name=employeeId]').value,'');assert.equal(q('[data-admin-tab=testProfiles]').textContent,'Test Profiles');w.close();
-console.log('PASS: real zero/recorded metrics, correct repeated open counts, paged/filtered complete logs, role protection, SQL-safe search, arbitrary languages with English fallback, translated app/interface rendering, database language saves and guided access/scenario UI.');
-})().catch(e=>{console.error(e);process.exitCode=1}).finally(()=>windows.forEach(w=>{try{w.close()}catch{}}));
+const assert = require('node:assert/strict'),
+  { JSDOM } = require('jsdom'),
+  fs = require('fs');
+const base = 'http://127.0.0.1:18088',
+  origin = 'https://appstore-x.norm.ar.arcelik',
+  windows = [];
+async function req(path, body, user = 'zeynep') {
+  const r = await fetch(base + path, {
+    method: body ? 'POST' : 'GET',
+    redirect: 'manual',
+    headers: {
+      'X-Test-User': user,
+      ...(body ? { 'Content-Type': 'application/json', Origin: origin } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  let data;
+  try {
+    data = await r.json();
+  } catch {}
+  return { status: r.status, data };
+}
+async function state() {
+  const r = await req('/api/experience');
+  assert.equal(r.status, 200);
+  return r.data;
+}
+async function save(data, action = 'changeApp', entity = 'fixture') {
+  const s = await state(),
+    r = await req('/api/experience/admin', {
+      data,
+      revision: s.revision,
+      action,
+      entity,
+    });
+  assert.equal(r.status, 200, JSON.stringify(r));
+  return r.data;
+}
+const pause = () => new Promise((r) => setTimeout(r, 35));
+async function until(fn) {
+  for (let i = 0; i < 160; i++) {
+    if (fn()) return;
+    await pause();
+  }
+  throw Error('UI timeout');
+}
+async function launch() {
+  const d = new JSDOM(fs.readFileSync('dist/index.html', 'utf8'), {
+      url: base,
+      runScripts: 'outside-only',
+    }),
+    w = d.window;
+  windows.push(w);
+  w.structuredClone = structuredClone;
+  w.matchMedia = () => ({ matches: false });
+  w.scrollTo = () => {};
+  w.confirm = () => true;
+  w.HTMLElement.prototype.scrollIntoView = () => {};
+  w.HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  w.HTMLDialogElement.prototype.close = function () {
+    this.open = false;
+  };
+  w.fetch = (p, o = {}) =>
+    fetch(new URL(p, base), {
+      ...o,
+      headers: { ...o.headers, Origin: origin },
+      signal: undefined,
+    });
+  w.eval(await (await fetch(base + '/runtime-config.js')).text());
+  for (const f of [
+    'react.js',
+    'react-dom.js',
+    'experience-template.js',
+    'experience-view.js',
+    'app.js',
+  ]) {
+    w.eval(fs.readFileSync('dist/' + f, 'utf8'));
+    if (f === 'experience-view.js') {
+      const mount = w.mountArcelikExperience;
+      w.mountArcelikExperience = (...args) => {
+        try {
+          return mount(...args);
+        } catch (e) {
+          console.error('MOUNT ERROR', e.stack);
+          throw e;
+        }
+      };
+    }
+  }
+  await until(() => w.document.querySelector('.topbar'));
+  return w;
+}
+function change(w, e, value) {
+  const type =
+    e.tagName === 'SELECT'
+      ? w.HTMLSelectElement
+      : e.tagName === 'TEXTAREA'
+        ? w.HTMLTextAreaElement
+        : w.HTMLInputElement;
+  Object.getOwnPropertyDescriptor(type.prototype, 'value').set.call(e, value);
+  e.dispatchEvent(
+    new w.Event(e.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }),
+  );
+}
+(async () => {
+  if (!process.env.UI_ONLY) {
+    const zero = await req('/api/experience/report?kind=overview');
+    assert.equal(zero.status, 200);
+    assert.equal(zero.data.downloadRequests, 0);
+    assert.equal(zero.data.webVisits, 0);
+    assert.equal(
+      (await req('/api/experience/report?kind=overview', null, 'rumeysa'))
+        .status,
+      403,
+    );
+    let s = await state(),
+      data = s.data;
+    data.languages.push(
+      { code: 'es', name: 'Español' },
+      { code: 'it', name: 'Italiano' },
+      { code: 'pl', name: 'Polski' },
+    );
+    for (const l of ['es', 'it', 'pl']) data.uiOverrides[l] = {};
+    data.uiOverrides.es.catalogue = 'Catálogo de aplicaciones';
+    data.apps.find((a) => a.id === 'pa').es = {
+      name: 'Academia de venta',
+      description: 'Descripción de prueba',
+    };
+    const a = data.apps.find((a) => a.id === 'pa');
+    a.links[0].url = 'https://downloads.example.test/retail.apk';
+    a.links[0].pending = false;
+    const link = a.links[0].id;
+    await save(data, 'languageAdded', 'es,it,pl');
+    for (let i = 0; i < 2; i++)
+      assert.equal(
+        (
+          await req(
+            '/api/experience/open?resource=app%3Apa&kind=link&link=' +
+              link +
+              '&testUser=rumeysa',
+          )
+        ).status,
+        302,
+      );
+    for (const resource of ['web:atlas', 'web:behome'])
+      assert.equal(
+        (
+          await req(
+            '/api/experience/open?resource=' +
+              encodeURIComponent(resource) +
+              '&testUser=rumeysa',
+          )
+        ).status,
+        302,
+      );
+    assert.equal(
+      (
+        await req(
+          '/api/experience/open?resource=app%3Apa&kind=link&link=missing&testUser=rumeysa',
+        )
+      ).status,
+      404,
+    );
+    for (let i = 0; i < 70; i++)
+      assert.equal(
+        (
+          await req(
+            '/api/experience/event',
+            { key: 'activitySearch', entity: 'needle-' + i },
+            'rumeysa',
+          )
+        ).status,
+        204,
+      );
+    const report = (await req('/api/experience/report?kind=overview')).data;
+    assert.equal(report.source, 'postgresql');
+    assert.equal(report.downloadRequests, 2);
+    assert.equal(report.webVisits, 2);
+    assert.equal(report.byApplication[0].count, 2);
+    const logs = (
+      await req(
+        '/api/experience/report?kind=activity&q=needle&user=rumeysa&action=activitySearch',
+      )
+    ).data;
+    assert.equal(logs.total, 70);
+    assert.equal(logs.items.length, 50);
+    const second = (
+      await req(
+        '/api/experience/report?kind=activity&q=needle&user=rumeysa&action=activitySearch&page=2',
+      )
+    ).data;
+    assert.equal(second.items.length, 20);
+    assert(!second.items.some((x) => logs.items.some((y) => x.id === y.id)));
+    assert.equal(
+      (await req('/api/experience/report?kind=activity&outcome=blocked')).data
+        .total,
+      1,
+    );
+    assert.equal(
+      (
+        await req(
+          '/api/experience/report?kind=activity&q=' +
+            encodeURIComponent("' OR true --"),
+        )
+      ).data.total,
+      0,
+    );
+    assert.equal(
+      (
+        await req(
+          '/api/experience/report?kind=overview&from=2040-01-01&to=2040-02-01',
+        )
+      ).data.downloadRequests,
+      0,
+    );
+    assert.equal(
+      (
+        await req(
+          '/api/experience/comments',
+          { appId: 'pa', language: 'pl', text: 'Działa poprawnie' },
+          'rumeysa',
+        )
+      ).status,
+      200,
+    );
+    const history = (
+      await req('/api/experience/report?kind=audit&action=languageAdded')
+    ).data;
+    assert.equal(history.total, 1);
+    assert(history.items[0].details.changedSections.includes('languages'));
+  }
+  const w = await launch(),
+    q = (s) => w.document.querySelector(s);
+  change(w, q('[data-ui-language]'), 'es');
+  await until(() => q('#catalogue-title')?.textContent.includes('Catálogo'));
+  assert(q('.hero h1').textContent.includes('Your everyday work.'));
+  assert(w.document.body.textContent.includes('Academia de venta'));
+  change(w, q('[data-ui-language]'), 'en');
+  await pause();
+  q('[data-manage]').click();
+  await until(() => q('.dashboard-stats'));
+  assert(!w.document.body.textContent.includes('1,284'));
+  assert(q('.report-origin').textContent.includes('PostgreSQL'));
+  q('[data-admin-tab="activity"]').click();
+  await until(() => q('.report-table'));
+  const search = q('#report-filters [name=q]');
+  change(w, search, 'needle-69');
+  q('#report-filters').dispatchEvent(
+    new w.Event('submit', { bubbles: true, cancelable: true }),
+  );
+  await until(() =>
+    q('.report-table tbody')?.textContent.includes('needle-69'),
+  );
+  assert.equal(q('.report-table tbody').querySelectorAll('tr').length, 1);
+  q('[data-admin-group="appearance"]').click();
+  await pause();
+  q('[data-admin-tab="languages"]').click();
+  await until(() => q('#add-language'));
+  change(w, q('#add-language [name=name]'), 'Deutsch');
+  change(w, q('#add-language [name=code]'), 'de');
+  q('#add-language').dispatchEvent(
+    new w.Event('submit', { bubbles: true, cancelable: true }),
+  );
+  await until(() =>
+    [...q('#translation-language').options].some((o) => o.value === 'de'),
+  );
+  assert.equal(q('#translation-language').value, 'de');
+  change(w, q('#translation-search'), 'catalogue');
+  const field = [...w.document.querySelectorAll('[data-i18n-input]')].find(
+    (e) => e.dataset.i18nInput === 'ui:catalogue',
+  );
+  change(w, field, 'Anwendungskatalog');
+  [...w.document.querySelectorAll('[data-save-i18n]')]
+    .find((e) => e.dataset.saveI18n === 'ui:catalogue')
+    .click();
+  await until(() =>
+    JSON.parse(JSON.stringify(w.document.body.textContent)).includes(
+      'Anwendungskatalog',
+    ),
+  );
+  let saved = await state();
+  for (
+    let i = 0;
+    i < 50 && saved.data.uiOverrides.de?.catalogue !== 'Anwendungskatalog';
+    i++
+  ) {
+    await pause();
+    saved = await state();
+  }
+  assert.equal(saved.data.uiOverrides.de.catalogue, 'Anwendungskatalog');
+  q('[data-admin-group="access"]').click();
+  await until(() => q('#grant-admin'));
+  assert(q('#grant-admin [name=user]'));
+  q('[data-admin-tab="testProfiles"]').click();
+  await until(() => q('.test-profile-grid'));
+  q('[data-edit="testProfile"]').click();
+  await until(() => q('#editor-form select[name=employeeType]'));
+  assert(q('#editor-form [name=companyCode]'));
+  assert.equal(q('#editor-form [name=employeeId]').value, '');
+  assert.equal(q('[data-admin-tab=testProfiles]').textContent, 'Test Profiles');
+  w.close();
+  console.log(
+    'PASS: real zero/recorded metrics, correct repeated open counts, paged/filtered complete logs, role protection, SQL-safe search, arbitrary languages with English fallback, translated app/interface rendering, database language saves and test profile editor.',
+  );
+})()
+  .catch((e) => {
+    console.error(e);
+    process.exitCode = 1;
+  })
+  .finally(() =>
+    windows.forEach((w) => {
+      try {
+        w.close();
+      } catch {}
+    }),
+  );

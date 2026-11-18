@@ -1,17 +1,214 @@
 // Isolated real .NET/PostgreSQL + React DOM regression checks.
-const {JSDOM}=require('jsdom'),fs=require('fs'),assert=require('node:assert/strict');const test='http://127.0.0.1:18088',prod='http://127.0.0.1:18091',origin='https://appstore-x.norm.ar.arcelik';const windows=[];
-const identity={'X-User-Sicil':'EMP-QA','X-User-Id':'c115b3da-b8bd-4d64-a727-d090c51e50fa','X-User-Email':'qa@example.test','X-User-Name':'Verified QA user'};
-async function call(base,path,headers={},body){const r=await fetch(base+path,{method:body?'POST':'GET',headers:{...headers,...(body?{'Content-Type':'application/json',Origin:base===test?origin:'https://prod.example.test'}:{})},...(body?{body:JSON.stringify(body)}:{})});let data;try{data=await r.json()}catch{}return {status:r.status,data}}
-const pause=()=>new Promise(r=>setTimeout(r,35));async function until(fn){for(let i=0;i<150;i++){if(fn())return;await pause()}throw Error('Review workflow timed out')}
-async function launch(base){const d=new JSDOM(fs.readFileSync('dist/index.html','utf8'),{url:base,runScripts:'outside-only'}),w=d.window;windows.push(w);w.structuredClone=structuredClone;w.matchMedia=()=>({matches:false});w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};w.confirm=()=>true;let failNext=false;w.rejectFavouriteOnce=()=>{failNext=true};w.fetch=(url,options={})=>{const headers={...(options.headers||{}),...(base===prod?identity:{}),Origin:base===test?origin:'https://prod.example.test'};if(failNext&&String(url).endsWith('/personal')){headers.Origin='https://evil.example';failNext=false}return fetch(new URL(url,base),{...options,headers,signal:undefined})};w.sessionStorage.setItem('arcelik-test-user','old-gateway-user@example.test');w.sessionStorage.setItem('arcelik-test-persona','stale-preview');if(base===test)w.sessionStorage.removeItem('arcelik-test-persona');w.eval(await(await fetch(base+'/runtime-config.js')).text());for(const f of ['react.js','react-dom.js','experience-template.js','experience-view.js','app.js'])w.eval(fs.readFileSync('dist/'+f,'utf8'));await until(()=>w.document.querySelector('.topbar'));return w}
-(async()=>{
-assert.equal((await call(test,'/api/experience')).status,401);const s=await call(test,'/api/experience',{'X-Test-User':'zeynep'});assert.equal(s.status,200);assert.equal(s.data.authMode,'TestProfiles');assert(s.data.isAdmin);
-assert.equal((await call(prod,'/api/experience',{'X-Test-User':'zeynep'})).status,401);const p=await call(prod,'/api/experience',identity);assert.equal(p.status,200);assert.equal(p.data.authMode,'Gateway');assert.equal(p.data.environment,'Production');assert.equal((await call(prod,'/api/experience',{...identity,'X-Test-Persona':'zeynep'})).status,403);
-await call(test,'/api/experience/personal',{'X-Test-User':'zeynep'},{key:'favorites',id:'app:pa',selected:false});let w=await launch(test),q=s=>w.document.querySelector(s);assert(q('.env').textContent==='Test');assert(q('.category-disclosure').open);assert(q('.categorytitle').textContent.includes('Browse'));
-q('.topbar').dispatchEvent(new w.Event('pointerdown',{bubbles:true}));await pause();assert(q('.category-disclosure').open,'Desktop outside click collapsed categories');let star=()=>q('[data-social-id="app:pa"]');star().click();await until(()=>star().getAttribute('aria-pressed')==='true');assert.equal(star().querySelector('svg').getAttribute('fill'),'currentColor');assert((await call(test,'/api/experience',{'X-Test-User':'zeynep'})).data.personal.favorites.includes('app:pa'));
-q('button[data-theme]').click();await pause();assert.equal(w.document.documentElement.dataset.theme,'dark');assert.equal(star().getAttribute('aria-pressed'),'true');star().click();await until(()=>star().getAttribute('aria-pressed')==='false');w.rejectFavouriteOnce();star().click();await until(()=>!star().disabled);assert.equal(star().getAttribute('aria-pressed'),'false');star().click();await until(()=>star().getAttribute('aria-pressed')==='true');
-q('[data-destination="web"]').click();await until(()=>q('.web-app-card'));assert(q('#web-directory-grid').querySelectorAll('.web-app-card').length>=3);assert(!q('.internal-tool-visual'));assert(q('.web-app-card .cover'));assert(q('.web-app-card .identity h3'));assert(q('.web-app-card [data-social]'));q('[data-destination="store"]').click();await until(()=>q('.category-disclosure'));assert(q('.category-disclosure').open);w.close();
-w=await launch(test);assert.equal(w.document.querySelector('[data-social-id="app:pa"]').getAttribute('aria-pressed'),'true');w.document.querySelector('[data-account]').click();await until(()=>w.document.querySelector('.account-profiles'));w.close();
-w=await launch(prod);assert(!w.document.querySelector('.env'),'Production has Test badge');w.document.querySelector('[data-account]').click();await until(()=>w.document.querySelector('.account-pop'));assert(!w.document.querySelector('.account-profiles'),'Production has preview switcher');assert(w.document.querySelector('.account-pop').textContent.includes('Verified QA user'));w.close();
-console.log('PASS: Test without gateway, Production-only verified identity and no account switcher, first-load/persistent categories, PostgreSQL favourites + filled star in both themes, rejected-save rollback/retry, reload persistence and application-style web cards.');
-})().catch(e=>{console.error(e);process.exitCode=1}).finally(()=>windows.forEach(w=>{try{w.close()}catch{}}));
+const { JSDOM } = require('jsdom'),
+  fs = require('fs'),
+  assert = require('node:assert/strict');
+const test = 'http://127.0.0.1:18088',
+  prod = 'http://127.0.0.1:18091',
+  origin = 'https://appstore-x.norm.ar.arcelik';
+const windows = [];
+const identity = {
+  'X-User-Sicil': 'EMP-QA',
+  'X-User-Id': 'c115b3da-b8bd-4d64-a727-d090c51e50fa',
+  'X-User-Email': 'qa@example.test',
+  'X-User-Name': 'Verified QA user',
+};
+async function call(base, path, headers = {}, body) {
+  const r = await fetch(base + path, {
+    method: body ? 'POST' : 'GET',
+    headers: {
+      ...headers,
+      ...(body
+        ? {
+            'Content-Type': 'application/json',
+            Origin: base === test ? origin : 'https://prod.example.test',
+          }
+        : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  let data;
+  try {
+    data = await r.json();
+  } catch {}
+  return { status: r.status, data };
+}
+const pause = () => new Promise((r) => setTimeout(r, 35));
+async function until(fn) {
+  for (let i = 0; i < 150; i++) {
+    if (fn()) return;
+    await pause();
+  }
+  throw Error('Review workflow timed out');
+}
+async function launch(base) {
+  const d = new JSDOM(fs.readFileSync('dist/index.html', 'utf8'), {
+      url: base,
+      runScripts: 'outside-only',
+    }),
+    w = d.window;
+  windows.push(w);
+  w.structuredClone = structuredClone;
+  w.matchMedia = () => ({ matches: false });
+  w.scrollTo = () => {};
+  w.HTMLElement.prototype.scrollIntoView = () => {};
+  w.HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  w.HTMLDialogElement.prototype.close = function () {
+    this.open = false;
+  };
+  w.confirm = () => true;
+  let failNext = false;
+  w.rejectFavouriteOnce = () => {
+    failNext = true;
+  };
+  w.fetch = (url, options = {}) => {
+    const headers = {
+      ...(options.headers || {}),
+      ...(base === prod ? identity : {}),
+      Origin: base === test ? origin : 'https://prod.example.test',
+    };
+    if (failNext && String(url).endsWith('/personal')) {
+      headers.Origin = 'https://evil.example';
+      failNext = false;
+    }
+    return fetch(new URL(url, base), {
+      ...options,
+      headers,
+      signal: undefined,
+    });
+  };
+  w.sessionStorage.setItem(
+    'arcelik-test-user',
+    'old-gateway-user@example.test',
+  );
+  w.sessionStorage.setItem('arcelik-test-persona', 'stale-preview');
+  if (base === test) w.sessionStorage.removeItem('arcelik-test-persona');
+  w.eval(await (await fetch(base + '/runtime-config.js')).text());
+  for (const f of [
+    'react.js',
+    'react-dom.js',
+    'experience-template.js',
+    'experience-view.js',
+    'app.js',
+  ])
+    w.eval(fs.readFileSync('dist/' + f, 'utf8'));
+  await until(() => w.document.querySelector('.topbar'));
+  return w;
+}
+(async () => {
+  assert.equal((await call(test, '/api/experience')).status, 401);
+  const s = await call(test, '/api/experience', { 'X-Test-User': 'zeynep' });
+  assert.equal(s.status, 200);
+  assert.equal(s.data.authMode, 'TestProfiles');
+  assert(s.data.isAdmin);
+  assert.equal(
+    (await call(prod, '/api/experience', { 'X-Test-User': 'zeynep' })).status,
+    401,
+  );
+  const p = await call(prod, '/api/experience', identity);
+  assert.equal(p.status, 200);
+  assert.equal(p.data.authMode, 'Gateway');
+  assert.equal(p.data.environment, 'Production');
+  assert.equal(
+    (
+      await call(prod, '/api/experience', {
+        ...identity,
+        'X-Test-Persona': 'zeynep',
+      })
+    ).status,
+    403,
+  );
+  await call(
+    test,
+    '/api/experience/personal',
+    { 'X-Test-User': 'zeynep' },
+    { key: 'favorites', id: 'app:pa', selected: false },
+  );
+  let w = await launch(test),
+    q = (s) => w.document.querySelector(s);
+  assert(q('.env').textContent === 'Test');
+  assert(q('.category-disclosure').open);
+  assert(q('.categorytitle').textContent.includes('Browse'));
+  q('.topbar').dispatchEvent(new w.Event('pointerdown', { bubbles: true }));
+  await pause();
+  assert(
+    q('.category-disclosure').open,
+    'Desktop outside click collapsed categories',
+  );
+  let star = () => q('[data-social-id="app:pa"]');
+  star().click();
+  await until(() => star().getAttribute('aria-pressed') === 'true');
+  assert.equal(
+    star().querySelector('svg').getAttribute('fill'),
+    'currentColor',
+  );
+  assert(
+    (
+      await call(test, '/api/experience', { 'X-Test-User': 'zeynep' })
+    ).data.personal.favorites.includes('app:pa'),
+  );
+  q('button[data-theme]').click();
+  await pause();
+  assert.equal(w.document.documentElement.dataset.theme, 'dark');
+  assert.equal(star().getAttribute('aria-pressed'), 'true');
+  star().click();
+  await until(() => star().getAttribute('aria-pressed') === 'false');
+  w.rejectFavouriteOnce();
+  star().click();
+  await until(() => !star().disabled);
+  assert.equal(star().getAttribute('aria-pressed'), 'false');
+  star().click();
+  await until(() => star().getAttribute('aria-pressed') === 'true');
+  q('[data-destination="web"]').click();
+  await until(() => q('.web-app-card'));
+  assert(
+    q('#web-directory-grid').querySelectorAll('.web-app-card').length >= 3,
+  );
+  assert(!q('.internal-tool-visual'));
+  assert(q('.web-app-card .cover'));
+  assert(q('.web-app-card .identity h3'));
+  assert(q('.web-app-card [data-social]'));
+  q('[data-destination="store"]').click();
+  await until(() => q('.category-disclosure'));
+  assert(q('.category-disclosure').open);
+  w.close();
+  w = await launch(test);
+  assert.equal(
+    w.document
+      .querySelector('[data-social-id="app:pa"]')
+      .getAttribute('aria-pressed'),
+    'true',
+  );
+  w.document.querySelector('[data-account]').click();
+  await until(() => w.document.querySelector('.account-profiles'));
+  w.close();
+  w = await launch(prod);
+  assert(!w.document.querySelector('.env'), 'Production has Test badge');
+  w.document.querySelector('[data-account]').click();
+  await until(() => w.document.querySelector('.account-pop'));
+  assert(
+    !w.document.querySelector('.account-profiles'),
+    'Production has preview switcher',
+  );
+  assert(
+    w.document
+      .querySelector('.account-pop')
+      .textContent.includes('Verified QA user'),
+  );
+  w.close();
+  console.log(
+    'PASS: Test without gateway, Production-only verified identity and no account switcher, first-load/persistent categories, PostgreSQL favourites + filled star in both themes, rejected-save rollback/retry, reload persistence and application-style web cards.',
+  );
+})()
+  .catch((e) => {
+    console.error(e);
+    process.exitCode = 1;
+  })
+  .finally(() =>
+    windows.forEach((w) => {
+      try {
+        w.close();
+      } catch {}
+    }),
+  );

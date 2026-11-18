@@ -1,7 +1,17 @@
-# Release 3.4 checks
+# Testing
 
-18 November 2026: Node/Babel build and .NET build passed. Local isolated PostgreSQL checks passed for React bootstrap, catalogue save, persisted favourites, shared comment, feedback receipt/inbox, employee write rejection, Gateway headers without any CIDR setting, missing/invalid identity rejection, image/document API upload permissions, PDF bytes and download eligibility, company/mail-group targeting and APK attachment download.
+Run these commands from the project root.
 
-For the local smoke harness only, explicitly set Authentication__Mode=TestProfiles in Test. The delivered Gateway default expects Norm to authenticate and forward the identity headers described in START-HERE.md. The local synthetic forwarded-header check validates the application contract, not a real Okta login.
+| Check | Command |
+| --- | --- |
+| Build the frontend | `npm ci` and `npm run build` |
+| Build the backend | `dotnet build src/AppStore.Web` |
+| Build and test the standalone preview | `python scripts/build-html.py` and `node tests/html-review.cjs` |
+| Test the admin workflows against a fresh Test database | `node tests/admin-upgrade.cjs` |
+| Test the Test and Production application contracts | `npm test` |
 
-No exhaustive browser, device, accessibility, load or live Norm deployment test is claimed. Dashboard metrics remain illustrative. The bundled experience-live.cjs expects an isolated TestProfiles application at http://127.0.0.1:18088 and deliberately changes its test catalogue. Never run mutation smoke scripts on a live catalogue.
+## Database-Backed Checks
+
+Start separate app instances on ports `18088` (Test) and `18091` (Production), each connected to its own disposable PostgreSQL database. The application reads its mode from the deployed `appsettings.json`. For the local Production check, configure a trusted loopback proxy range and the public origin `https://prod.example.test`. These tests use synthetic identity headers and modify their disposable databases. Run the admin workflow suite first, since it checks that reporting starts with zero recorded activity.
+
+The local Production checks cover the gateway header contract. Live Norm deployment and Okta sign-in require the hosting environment.

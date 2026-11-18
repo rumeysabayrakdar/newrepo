@@ -1,0 +1,6320 @@
+// Approved view renderer mounted by the React application shell.
+// Shared state is API-backed; local storage holds only harmless display preferences/drafts.
+window.mountArcelikExperience = function (root, bridge) {
+  const abort = new AbortController(),
+    timers = [];
+  const onDocument = (type, fn, options = {}) =>
+    document.addEventListener(type, fn, {
+      ...(typeof options === 'boolean' ? { capture: options } : options),
+      signal: abort.signal,
+    });
+  const onWindow = (type, fn, options = {}) =>
+    window.addEventListener(type, fn, {
+      ...(typeof options === 'boolean' ? { capture: options } : options),
+      signal: abort.signal,
+    });
+  const ownedInterval = (fn, ms) => {
+    const id = window.setInterval(fn, ms);
+    timers.push(id);
+    return id;
+  };
+  const icons = {
+    search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+    edit: '<path d="m15 4 5 5M4 20l4-1 12-12a2 2 0 0 0-4-4L4 15z"/>',
+    close: '<path d="m6 6 12 12M18 6 6 18"/>',
+    moon: '<path d="M20 14a8 8 0 0 1-10-10 8.5 8.5 0 1 0 10 10Z"/>',
+    gear: '<path d="m9 3 1-1h4l1 1 .6 2 2 .8 2-.5 2 3-1.4 1.6v2.2L22 14l-2 3-2-.5-2 .8-.6 2-1 1h-4l-1-1-.6-2-2-.8-2 .5-2-3 1.4-1.6v-2.2L2 8l2-3 2 .5 2-.8Z"/><circle cx="12" cy="11" r="3"/>',
+    arrow: '<path d="M5 12h14M14 7l5 5-5 5"/>',
+    chevron: '<path d="m7 9 5 5 5-5"/>',
+    home: '<path d="m3 10 9-7 9 7M6 9v11h12V9M10 20v-7h4v7"/>',
+  };
+  icons.chat =
+    '<path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-6 4V6a2 2 0 0 1 2-2Z"/><path d="M7 9h10M7 13h6"/>';
+  const svg = (name) =>
+    '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    (icons[name] || icons.edit) +
+    '</svg>';
+  const filePath = (url) => bridge.filePath(url);
+  const esc = (value) =>
+    String(value ?? '').replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        })[c],
+    );
+  const $ = (id) => document.getElementById(id);
+
+  const LABELS = [
+    { id: 'new', en: 'New', tr: 'Yeni', color: '#18845b' },
+    { id: 'updated', en: 'Updated', tr: 'Güncellendi', color: '#3969c4' },
+    { id: 'popular', en: 'Popular', tr: 'Popüler', color: '#a16c18' },
+    { id: 'recommended', en: 'Recommended', tr: 'Önerilen', color: '#8153b8' },
+    { id: 'mobile', en: 'Mobile only', tr: 'Yalnızca mobil', color: '#208c9e' },
+  ];
+  const PREVIEW_META = {};
+
+  Object.assign(icons, {
+    cards:
+      '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    list: '<path d="M9 5h12M9 12h12M9 19h12"/><rect x="3" y="3" width="2" height="4" rx="1"/><rect x="3" y="10" width="2" height="4" rx="1"/><rect x="3" y="17" width="2" height="4" rx="1"/>',
+    compare:
+      '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M10 4v16M16 4v16"/>',
+  });
+  const PEOPLE = bridge.bootstrap.people;
+  function normalizeResources(model) {
+    for (const a of model.apps) {
+      a.documents = (a.documents || []).map((d) => ({
+        ...d,
+        title:
+          typeof d.title === 'string' ? { en: d.title, tr: d.title } : d.title,
+      }));
+      a.images = (a.images || []).map((r, i) =>
+        typeof r === 'string'
+          ? { id: a.id + '-image-' + i, url: r, caption: {} }
+          : r,
+      );
+    }
+    return model;
+  }
+  let data = normalizeResources(structuredClone(bridge.bootstrap.data));
+  for (const a of data.apps) {
+    const m = PREVIEW_META[a.id] || {
+      labels: [],
+      comments: [],
+      featuredComment: null,
+    };
+    a.labels ??= structuredClone(m.labels);
+    a.comments ??= structuredClone(m.comments);
+    if (a.featuredComment === undefined) a.featuredComment = m.featuredComment;
+  }
+  for (const a of data.apps) {
+    a.archived ??= false;
+    a.featured ??= ['pa', 'servis', 'bizpuan'].includes(a.id);
+    a.links ??= a.platforms.map((platform, i) => ({
+      id: a.id + '-link-' + i,
+      platform,
+      version: a.version,
+      url: a.url || '',
+      pending: !a.url,
+      label: {
+        en: a.en.name + ' for ' + platform,
+        tr: platform + ' için ' + a.tr.name,
+      },
+    }));
+    a.documents ??= [];
+    a.images ??= [];
+    a.symbol ??= (a.en.name || 'A')
+      .split(' ')
+      .map((x) => x[0])
+      .slice(0, 2)
+      .join('');
+  }
+  data.filters ??= {
+    category: true,
+    platform: true,
+    label: true,
+    sort: true,
+    defaultSort: 'default',
+  };
+  data.uiOverrides ??= { en: {}, tr: {} };
+  data.languages ??= [
+    { code: 'en', name: 'English' },
+    { code: 'tr', name: 'Türkçe' },
+  ];
+  for (const l of data.languages) data.uiOverrides[l.code] ??= {};
+  data.activity ??= [];
+  data.admins ??= [];
+  data.adminAssignments ??= data.admins.map((id) => ({
+    employeeId: id === 'zeynep' ? '10002' : '10001',
+    profileId: id,
+  }));
+  function acceptServer(response) {
+    bridge.bootstrap = response;
+    data = normalizeResources(structuredClone(response.data));
+    personal[state.person.id] = structuredClone(response.personal);
+  }
+
+  let prefs = { lang: 'en', theme: 'light' };
+  try {
+    prefs = {
+      ...prefs,
+      ...JSON.parse(localStorage.getItem('arcelik-review-prefs') || '{}'),
+    };
+  } catch {}
+  if (!data.languages.some((l) => l.code === prefs.lang)) prefs.lang = 'en';
+  if (!['light', 'dark'].includes(prefs.theme)) prefs.theme = 'light';
+  const isAdmin = () => innerWidth >= 900 && bridge.bootstrap.isAdmin;
+  let state = {
+    lang: prefs.lang,
+    theme: prefs.theme,
+    person: bridge.bootstrap.profile,
+    view: 'store',
+    tab: 'arcelik',
+    category: 'all',
+    expanded: null,
+    query: '',
+    platform: 'all',
+    label: 'all',
+    sort: data.filters.defaultSort,
+    adminStatus: 'all',
+    adminQuery: '',
+    translationQuery: '',
+    bulk: [],
+    filtersOpen: null,
+    commentDrafts: {},
+    layout:
+      innerWidth <= 680
+        ? prefs.layoutMobile === 'compare'
+          ? 'compare'
+          : 'cards'
+        : prefs.layoutDesktop === 'compare'
+          ? 'compare'
+          : 'cards',
+    narrowLayout: innerWidth <= 680,
+    categoryMenuOpen: null,
+    selected: null,
+    account: false,
+    adminTab: 'dashboard',
+    suggestionIndex: -1,
+    searchOpen: false,
+    rotation: 0,
+  };
+  let previousScroll = window.scrollY,
+    toastTimer,
+    editorInitial = '',
+    editorContext = null,
+    closingMobile = false,
+    lastFocus = null;
+  const t = (key) =>
+    data.uiOverrides[state.lang]?.[key] ||
+    interfaceText[state.lang]?.[key] ||
+    data.uiOverrides.en?.[key] ||
+    interfaceText.en[key] ||
+    key;
+  const content = (item, language = state.lang) => ({
+    ...item?.en,
+    ...Object.fromEntries(
+      Object.entries(item?.[language] || {}).filter(
+        ([k, v]) => typeof v !== 'string' || v.trim(),
+      ),
+    ),
+  });
+  const local = (app) => {
+    const c = content(app);
+    return {
+      name: c.name || t('unnamedApp'),
+      summary: (c.summary || c.description || '').slice(0, 150),
+      description: c.description || c.summary || '',
+    };
+  };
+
+  const catName = (id) =>
+    data.categories.find((c) => c.id === id)?.[state.lang] ||
+    data.categories.find((c) => c.id === id)?.en ||
+    id;
+  const isMobile = () => innerWidth < 900;
+  const appById = (id) => data.apps.find((a) => a.id === id);
+  const appList = () => data.apps.filter((a) => a.active && !a.archived);
+
+  data.uiLayout ??= {
+    columns: 3,
+    appOrder: [],
+    featuredOrder: [],
+    webOrder: [],
+    webSizes: { connecta: 'wide' },
+  };
+  function ordered(items, ids = []) {
+    const rank = new Map(ids.map((id, i) => [id, i]));
+    return [...items].sort(
+      (a, b) => (rank.get(a.id) ?? 9999) - (rank.get(b.id) ?? 9999),
+    );
+  }
+  function layoutRows(items, key, sizes = false) {
+    return (
+      '<div class="layout-rows" data-layout-list="' +
+      key +
+      '">' +
+      ordered(items, data.uiLayout[key] || [])
+        .map(
+          (r) =>
+            '<div class="layout-row" data-order-id="' +
+            r.id +
+            '"><input type="hidden" name="order-' +
+            key +
+            '" value="' +
+            r.id +
+            '"><span>' +
+            esc(
+              r._app ? local(r).name : r.en && r.tr ? content(r).name : r.name,
+            ) +
+            '</span>' +
+            (sizes
+              ? '<select name="size-' +
+                r.id +
+                '" aria-label="' +
+                wx('Card size', 'Kart boyutu') +
+                '">' +
+                [
+                  ['normal', 'Standard', 'Standart'],
+                  ['wide', 'Wide', 'Geniş'],
+                  ['compact', 'Compact', 'Küçük'],
+                ]
+                  .map(
+                    ([id, en, tr]) =>
+                      '<option value="' +
+                      id +
+                      '"' +
+                      ((data.uiLayout.webSizes[r.id] || 'normal') === id
+                        ? ' selected'
+                        : '') +
+                      '>' +
+                      wx(en, tr) +
+                      '</option>',
+                  )
+                  .join('') +
+                '</select>'
+              : '') +
+            '<button type="button" class="layout-move" data-layout-move="up" aria-label="' +
+            wx('Move up', 'Yukarı taşı') +
+            '">↑</button><button type="button" class="layout-move" data-layout-move="down" aria-label="' +
+            wx('Move down', 'Aşağı taşı') +
+            '">↓</button></div>',
+        )
+        .join('') +
+      '</div>'
+    );
+  }
+  state.multi = { category: [], platform: [], label: [] };
+  const results = () => {
+    const list = appList().filter(
+      (a) =>
+        (!state.multi.category.length ||
+          state.multi.category.some((v) => a.categories.includes(v))) &&
+        (!state.multi.platform.length ||
+          state.multi.platform.some((v) => a.platforms.includes(v))) &&
+        (!state.multi.label.length ||
+          state.multi.label.some((v) => (a.labels || []).includes(v))) &&
+        (state.category === 'all' || a.categories.includes(state.category)) &&
+        (state.platform === 'all' || a.platforms.includes(state.platform)) &&
+        (state.label === 'all' || (a.labels || []).includes(state.label)) &&
+        (!state.query.trim() ||
+          (
+            local(a).name +
+            ' ' +
+            local(a).description +
+            ' ' +
+            a.categories.map(catName).join(' ')
+          )
+            .toLocaleLowerCase(state.lang)
+            .includes(state.query.trim().toLocaleLowerCase(state.lang))),
+    );
+    if (state.sort !== 'default')
+      list.sort(
+        (a, b) =>
+          local(a).name.localeCompare(local(b).name, state.lang) *
+          (state.sort === 'za' ? -1 : 1),
+      );
+    return state.sort === 'default'
+      ? ordered(list, data.uiLayout.appOrder)
+      : list;
+  };
+  const labelInfo = (id) => LABELS.find((l) => l.id === id);
+  const labelName = (id) =>
+    labelInfo(id)?.[state.lang] || labelInfo(id)?.en || id;
+  function labelsMarkup(a) {
+    return (
+      '<div class="app-labels">' +
+      (a.labels || [])
+        .map(
+          (id) =>
+            '<span class="app-label" style="--label-color:' +
+            esc(labelInfo(id)?.color || '#3969c4') +
+            '">' +
+            esc(labelName(id)) +
+            '</span>',
+        )
+        .join('') +
+      '</div>'
+    );
+  }
+  function commentText(c) {
+    return typeof c.text === 'string'
+      ? c.text
+      : c.text[state.lang] ||
+          c.text[c.language] ||
+          Object.values(c.text)[0] ||
+          '';
+  }
+
+  function commentDate(c) {
+    return new Date(c.time).toLocaleString(
+      state.lang === 'tr' ? 'tr-TR' : 'en-GB',
+      {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Europe/Istanbul',
+      },
+    );
+  }
+  function commentRow(a, c) {
+    const featured = a.featuredComment === c.id;
+    return (
+      '<article class="comment-row ' +
+      (featured ? 'is-featured' : '') +
+      '"><div class="comment-by"><b>' +
+      esc(c.author) +
+      '</b><time datetime="' +
+      esc(c.time) +
+      '">' +
+      esc(commentDate(c)) +
+      '</time></div><p>' +
+      esc(commentText(c)) +
+      '</p>' +
+      (c.language && c.language !== state.lang
+        ? '<small class="muted">' +
+          t('originalComment') +
+          ': ' +
+          c.language.toUpperCase() +
+          '</small>'
+        : '') +
+      '<div class="comment-actions">' +
+      (featured
+        ? '<span class="featured-label">' + t('featuredComment') + '</span>'
+        : '') +
+      (isAdmin()
+        ? '<button class="btn" data-feature-comment="' +
+          esc(c.id) +
+          '" data-app="' +
+          a.id +
+          '">' +
+          t(featured ? 'unfeatureComment' : 'featureComment') +
+          '</button>'
+        : '') +
+      '</div></article>'
+    );
+  }
+  function commentsMarkup(a) {
+    const draft = state.commentDrafts[a.id]?.text || '';
+    return (
+      '<section class="comments-section" aria-label="' +
+      esc(t('comments')) +
+      '"><h3>' +
+      t('comments') +
+      ' <span class="pill">' +
+      a.comments.length +
+      '</span></h3><div class="comment-list">' +
+      (a.comments.length
+        ? a.comments.map((c) => commentRow(a, c)).join('')
+        : '<p class="detail-desc">' + t('noComments') + '</p>') +
+      '</div><form class="comment-form" novalidate data-app="' +
+      a.id +
+      '"><label class="field">' +
+      t('writeComment') +
+      '<textarea name="comment" data-comment="' +
+      a.id +
+      '" maxlength="300" required rows="3">' +
+      esc(draft) +
+      '</textarea></label><div class="comment-meta"><span>' +
+      t('postingAs') +
+      ' <b>' +
+      state.person.name +
+      '</b></span><span class="comment-counter">' +
+      draft.length +
+      '/300</span></div><p class="comment-notice">' +
+      t('commentNotice') +
+      '</p><button type="submit" class="btn primary">' +
+      t('postComment') +
+      '</button></form></section>'
+    );
+  }
+  function refreshView() {
+    const y = window.scrollY,
+      pane = $('detail-pane'),
+      paneTop = pane?.scrollTop || 0,
+      mobile = $('mobileDetail'),
+      mobileTop = mobile.scrollTop;
+    render();
+    if (pane && $('detail-pane')) $('detail-pane').scrollTop = paneTop;
+    if (mobile.open && state.selected) {
+      mobile.innerHTML = detailMarkup(appById(state.selected), true);
+      mobile.scrollTop = mobileTop;
+    }
+    window.scrollTo({ top: y });
+  }
+  function filterMarkup() {
+    const groups = [
+      [
+        'category',
+        t('filterCategory'),
+        data.categories
+          .filter((c) => appList().some((a) => a.categories.includes(c.id)))
+          .map((c) => [c.id, c[state.lang] || c.en || c.tr || '']),
+      ],
+      [
+        'platform',
+        t('platforms'),
+        ['Web', 'iOS', 'Android', 'Windows']
+          .filter((p) => appList().some((a) => a.platforms.includes(p)))
+          .map((p) => [p, p]),
+      ],
+      [
+        'label',
+        t('filterLabel'),
+        LABELS.filter((l) =>
+          appList().some((a) => (a.labels || []).includes(l.id)),
+        ).map((l) => [l.id, l[state.lang] || l.en || l.tr || '']),
+      ],
+    ].filter(([key]) => data.filters[key]);
+    const active = Object.entries(state.multi).flatMap(([key, values]) =>
+      values.map((v) => [
+        key,
+        v,
+        key === 'category' ? catName(v) : key === 'label' ? labelName(v) : v,
+      ]),
+    );
+    return (
+      '<details class="filter-panel multi-filter-panel" id="filter-panel"' +
+      ((state.filtersOpen ?? false) ? ' open' : '') +
+      '><summary>' +
+      t('filters') +
+      (active.length ? '<span class="pill">' + active.length + '</span>' : '') +
+      svg('chevron') +
+      '</summary><div class="multi-filter-body">' +
+      groups
+        .map(
+          ([key, label, options]) =>
+            '<fieldset><legend>' +
+            label +
+            '</legend><div class="filter-checks">' +
+            options
+              .map(
+                ([value, name]) =>
+                  '<label><input type="checkbox" data-multi-filter="' +
+                  key +
+                  '" value="' +
+                  value +
+                  '"' +
+                  (state.multi[key].includes(value) ? ' checked' : '') +
+                  '><span>' +
+                  esc(name) +
+                  '</span></label>',
+              )
+              .join('') +
+            '</div></fieldset>',
+        )
+        .join('') +
+      (data.filters.sort
+        ? '<label class="multi-sort">' +
+          t('sortBy') +
+          '<select id="multi-sort">' +
+          [
+            ['default', 'sortDefault'],
+            ['az', 'sortAZ'],
+            ['za', 'sortZA'],
+          ]
+            .map(
+              ([v, k]) =>
+                '<option value="' +
+                v +
+                '"' +
+                (state.sort === v ? ' selected' : '') +
+                '>' +
+                t(k) +
+                '</option>',
+            )
+            .join('') +
+          '</select></label>'
+        : '') +
+      '<div class="multi-filter-actions"><button class="btn" data-reset-filters>' +
+      t('clearFilters') +
+      '</button><button class="btn primary" data-apply-filters>' +
+      wx('Show results', 'Sonuçları göster') +
+      '</button></div></div></details>' +
+      (active.length
+        ? '<div class="active-filters">' +
+          active
+            .map(
+              ([key, value, name]) =>
+                '<button data-remove-multi="' +
+                key +
+                '" data-value="' +
+                value +
+                '">' +
+                esc(name) +
+                ' ×</button>',
+            )
+            .join('') +
+          '</div>'
+        : '')
+    );
+  }
+  function applyMultiFilters() {
+    const host = $('filter-panel');
+    if (!host) return;
+    for (const key of ['category', 'platform', 'label'])
+      state.multi[key] = [
+        ...host.querySelectorAll('[data-multi-filter="' + key + '"]:checked'),
+      ].map((el) => el.value);
+    state.category = 'all';
+    state.platform = 'all';
+    state.label = 'all';
+    state.selected = null;
+    if ($('multi-sort')) state.sort = $('multi-sort').value;
+    state.filtersOpen = !isMobile();
+    updateResults();
+  }
+
+  const visibleSuggestions = () =>
+    state.query.trim()
+      ? data.apps
+          .filter(
+            (a) =>
+              a.active &&
+              !a.archived &&
+              (local(a).name + ' ' + local(a).description)
+                .toLocaleLowerCase(state.lang)
+                .includes(state.query.trim().toLocaleLowerCase(state.lang)),
+          )
+          .slice(0, 5)
+      : data.search.ids.map(appById).filter((a) => a?.active && !a.archived);
+  function art(a, cls = '') {
+    if (a.id === 'connecta' && a.image) cls += ' connecta-logo';
+    if (a.asset == null && !a.image)
+      return (
+        '<span class="symbol-art" style="background:' +
+        esc(a.color || '#d61530') +
+        '">' +
+        esc(a.symbol || local(a).name.slice(0, 2)) +
+        '</span>'
+      );
+    return a.image
+      ? '<img class="art-image ' +
+          cls +
+          '" src="' +
+          esc(filePath(a.image)) +
+          '" alt="' +
+          esc(local(a).name) +
+          '" loading="lazy">'
+      : '<span class="asset ' +
+          cls +
+          '" style="--asset-pos:' +
+          [0, 33.3333, 66.6667, 100][a.asset % 4] +
+          '% ' +
+          (a.asset < 4 ? 0 : 100) +
+          '%" role="img" aria-label="' +
+          esc(local(a).name) +
+          '"></span>';
+  }
+  function appIcon(a) {
+    return '<span class="app-icon">' + art(a) + '</span>';
+  }
+  function quick(kind, id, label) {
+    return isAdmin()
+      ? '<button type="button" class="quick" data-edit="' +
+          kind +
+          '"' +
+          (id ? ' data-id="' + id + '"' : '') +
+          ' aria-label="' +
+          esc(t(label)) +
+          '" title="' +
+          esc(t(label)) +
+          '">' +
+          svg('edit') +
+          '</button>'
+      : '';
+  }
+  function savePrefs() {
+    prefs = {
+      ...prefs,
+      lang: state.lang,
+      theme: state.theme,
+      [innerWidth <= 680 ? 'layoutMobile' : 'layoutDesktop']: state.layout,
+    };
+    localStorage.setItem('arcelik-review-prefs', JSON.stringify(prefs));
+  }
+  function notify(message) {
+    clearTimeout(toastTimer);
+    $('toast').textContent = message;
+    $('toast').hidden = false;
+    toastTimer = setTimeout(() => ($('toast').hidden = true), 3600);
+  }
+  async function persist(next, action, entity = '') {
+    const response = await bridge.request('/api/experience/admin', {
+      data: next,
+      revision: bridge.bootstrap.revision,
+      action,
+      entity: entity || editorContext?.id || editorContext?.kind || '',
+    });
+    acceptServer(response);
+    notify(t('saved'));
+  }
+  function syncAdmins(next) {
+    next.admins = [
+      ...new Set(next.adminAssignments.map((a) => a.profileId).filter(Boolean)),
+    ];
+  }
+  function employeeMatch(id) {
+    if (!id) return t('employeeId');
+    const p = PEOPLE.find((p) => p.employeeId === id);
+    return p
+      ? t('matchingPerson') + ': <b>' + esc(p.name) + '</b>'
+      : t('notSignedIn');
+  }
+  function visibleAdminApps() {
+    return data.apps.filter(
+      (a) =>
+        (state.adminStatus === 'all' ||
+          (state.adminStatus === 'archived' && a.archived) ||
+          (state.adminStatus === 'active' && !a.archived && a.active) ||
+          (state.adminStatus === 'inactive' && !a.archived && !a.active)) &&
+        (!state.adminQuery ||
+          (local(a).name + ' ' + a.categories.map(catName).join(' '))
+            .toLocaleLowerCase(state.lang)
+            .includes(state.adminQuery.toLocaleLowerCase(state.lang))),
+    );
+  }
+  function applicationsPanel() {
+    return (
+      '<div class="section-heading"><h2>' +
+      t('applicationsTitle') +
+      '</h2><button class="btn primary" data-edit="newapp">+ ' +
+      t('addApp') +
+      '</button></div><div class="admin-controls"><input id="admin-app-search" type="search" aria-label="' +
+      esc(t('searchApps')) +
+      '" placeholder="' +
+      esc(t('searchApps')) +
+      '" value="' +
+      esc(state.adminQuery) +
+      '"><select id="admin-status" aria-label="' +
+      esc(t('status')) +
+      '">' +
+      [
+        ['all', 'allStatuses'],
+        ['active', 'active'],
+        ['inactive', 'inactive'],
+        ['archived', 'archived'],
+      ]
+        .map(
+          ([v, k]) =>
+            '<option value="' +
+            v +
+            '"' +
+            (state.adminStatus === v ? ' selected' : '') +
+            '>' +
+            t(k) +
+            '</option>',
+        )
+        .join('') +
+      '</select></div><div id="admin-app-rows">' +
+      applicationRows() +
+      '</div>'
+    );
+  }
+  function applicationRows() {
+    const list = visibleAdminApps();
+    return (
+      '<div class="bulk-tools"><label class="check"><input type="checkbox" id="bulk-all"' +
+      (list.length && list.every((a) => state.bulk.includes(a.id))
+        ? ' checked'
+        : '') +
+      '> ' +
+      t('selectAll') +
+      '</label><span>' +
+      state.bulk.length +
+      ' ' +
+      t('selectedCount') +
+      '</span>' +
+      (state.bulk.length
+        ? '<button class="btn" data-bulk-archive>' +
+          t('archive') +
+          '</button><button class="btn" data-bulk-restore>' +
+          t('restore') +
+          '</button><button class="btn" data-clear-bulk>' +
+          t('clearSelection') +
+          '</button>'
+        : '') +
+      '</div>' +
+      list
+        .map(
+          (a) =>
+            '<div class="admin-row"><input class="bulk-checkbox" type="checkbox" data-bulk-app="' +
+            a.id +
+            '" aria-label="' +
+            esc(t('selectApp') + ': ' + local(a).name) +
+            '"' +
+            (state.bulk.includes(a.id) ? ' checked' : '') +
+            '>' +
+            appIcon(a) +
+            '<div class="grow"><strong>' +
+            esc(local(a).name) +
+            '</strong><small>' +
+            esc(a.categories.map(catName).join(' · ')) +
+            ' · v' +
+            esc(a.version) +
+            '</small></div><span class="status ' +
+            (a.archived || !a.active ? 'off' : '') +
+            '">' +
+            t(a.archived ? 'archived' : a.active ? 'active' : 'inactive') +
+            '</span><div class="row-actions"><button class="btn" data-edit="app" data-id="' +
+            a.id +
+            '">' +
+            t('edit') +
+            '</button><button class="btn" data-toggle-app="' +
+            a.id +
+            '"' +
+            (a.archived ? ' disabled' : '') +
+            '>' +
+            t(a.active ? 'deactivate' : 'activate') +
+            '</button><button class="btn" ' +
+            (a.archived ? 'data-restore' : 'data-archive') +
+            '="' +
+            a.id +
+            '">' +
+            t(a.archived ? 'restore' : 'archive') +
+            '</button></div></div>',
+        )
+        .join('')
+    );
+  }
+  function renderAdminApps() {
+    if ($('admin-app-rows')) $('admin-app-rows').innerHTML = applicationRows();
+  }
+  async function archiveApps(ids, restore) {
+    if (
+      !isAdmin() ||
+      !ids.length ||
+      !confirm(t(restore ? 'confirmRestore' : 'confirmArchive'))
+    )
+      return;
+    const next = structuredClone(data);
+    for (const a of next.apps) if (ids.includes(a.id)) a.archived = !restore;
+    try {
+      await persist(next, 'archiveChanged', ids.join(', '));
+      state.bulk = [];
+      if (ids.includes(state.selected) && !restore) state.selected = null;
+      render();
+    } catch (error) {
+      notify(error.message);
+    }
+  }
+  function categoriesPanel() {
+    const rows = data.categories
+      .map((c) => {
+        const count = data.apps.filter((a) =>
+          a.categories.includes(c.id),
+        ).length;
+        return (
+          '<div class="admin-row"><span class="grow"><strong>' +
+          esc(catName(c.id)) +
+          '</strong><small>' +
+          count +
+          ' ' +
+          (count === 1 ? wx('App', 'Uygulama') : wx('Apps', 'Uygulama')) +
+          '</small></span><button class="btn" data-edit="category" data-id="' +
+          esc(c.id) +
+          '">' +
+          wx('Edit Category', 'Kategoriyi Düzenle') +
+          '</button><button class="btn danger" data-remove-category="' +
+          esc(c.id) +
+          '"' +
+          (count ? ' disabled title="' + esc(t('categoryInUse')) + '"' : '') +
+          '>' +
+          t('remove') +
+          '</button></div>'
+        );
+      })
+      .join('');
+    return (
+      '<div class="section-heading"><h2>' +
+      t('categoryAssignments') +
+      '</h2><button class="btn primary" data-edit="newcategory">+ ' +
+      wx('Add Category', 'Kategori Ekle') +
+      '</button></div><p>' +
+      wx(
+        'Create categories and choose which apps belong in each one.',
+        'Kategoriler oluştur ve her kategoride hangi uygulamaların yer alacağını seç.',
+      ) +
+      '</p><p class="muted">' +
+      categoryLanguageHelp() +
+      '</p>' +
+      rows
+    );
+  }
+  function categoryLanguageHelp() {
+    return wx(
+      'Category names follow the selected language. To edit names in another language, use the language menu or go to Appearance & Language → Languages. App assignments are shared across languages.',
+      'Kategori adları seçili dile göre düzenlenir. Başka bir dildeki adları düzenlemek için dil menüsünü veya Görünüm ve Dil → Diller bölümünü kullan. Uygulama atamaları tüm dillerde ortaktır.',
+    );
+  }
+  async function removeCategory(id) {
+    if (!isAdmin()) return;
+    if (data.apps.some((a) => a.categories.includes(id)))
+      return notify(t('categoryInUse'));
+    if (!confirm(t('confirmRemoveCategory'))) return;
+    const next = structuredClone(data);
+    next.categories = next.categories.filter((c) => c.id !== id);
+    try {
+      await persist(next, 'categoryRemoved');
+      if (state.category === id) state.category = 'all';
+      render();
+    } catch (error) {
+      notify(error.message);
+    }
+  }
+
+  async function revokeAdmin(employeeId) {
+    if (!isAdmin()) return;
+    const a = data.adminAssignments.find((a) => a.employeeId === employeeId);
+    if (!a) return;
+    if (a.profileId === state.person.id) return notify(t('ownAdminProtected'));
+    if (a.profileId && data.admins.length <= 1) return notify(t('lastAdmin'));
+    if (!confirm(t('confirmRevoke'))) return;
+    const next = structuredClone(data);
+    next.adminAssignments = next.adminAssignments.filter(
+      (a) => a.employeeId !== employeeId,
+    );
+    syncAdmins(next);
+    try {
+      await persist(next, 'adminChanged');
+      render();
+    } catch (error) {
+      notify(error.message);
+    }
+  }
+
+  function renderTranslationRows() {
+    if ($('translation-rows'))
+      $('translation-rows').innerHTML = translationRows();
+  }
+
+  function recordActivity(key, entity, outcome = '') {
+    bridge
+      .request('/api/experience/event', { key, entity: entity.slice(0, 200) })
+      .catch((error) => notify(error.message));
+  }
+
+  function featuredSection() {
+    const apps = ordered(
+      data.apps.filter((a) => a.active && !a.archived && a.featured),
+      data.uiLayout.featuredOrder,
+    );
+    return apps.length
+      ? '<section class="featured-section"><div class="featured-title"><h2>' +
+          wx('Recently added', 'Yeni eklenenler') +
+          '</h2>' +
+          quick('featured', null, 'editFeatured') +
+          '</div><div class="feature-bento">' +
+          apps
+            .map(
+              (a, i) =>
+                '<button class="bento-card bento-' +
+                (i % 4) +
+                '" data-open="' +
+                a.id +
+                '" aria-label="' +
+                esc(t('openDetails') + ': ' + local(a).name) +
+                '"><span class="bento-copy"><small>' +
+                esc(a.categories.map(catName).slice(0, 1).join('')) +
+                '</small><b>' +
+                esc(local(a).name) +
+                '</b><span class="bento-meta"><span class="bento-platform">' +
+                a.platforms.join(' · ') +
+                '</span><span class="bento-inline-arrow" aria-hidden="true">↗</span></span></span><span class="bento-art">' +
+                (a.id === 'pa' && !a.image
+                  ? '<img src="assets/pa-cutout.png" alt="">'
+                  : art(a)) +
+                '</span></button>',
+            )
+            .join('') +
+          '</div></section>'
+      : '';
+  }
+
+  function linkLabel(link, a) {
+    return (
+      link.label?.[state.lang] ||
+      link.label?.en ||
+      (typeof link.label === 'string' && link.label) ||
+      (state.lang === 'tr'
+        ? link.platform + ' için ' + local(a).name
+        : local(a).name + ' for ' + link.platform)
+    );
+  }
+  function downloadMarkup(a) {
+    const multiple = a.platforms.some(
+      (p) =>
+        a.links.filter((l) => l.platform === p && !l.pending && l.url).length >
+        1,
+    );
+    return (
+      (multiple
+        ? '<p class="release-choice">' +
+          wx(
+            'Choose the version that suits your needs.',
+            'İhtiyacına uygun sürümü seç.',
+          ) +
+          '</p>'
+        : '') +
+      a.links
+        .map(
+          (l) =>
+            '<div class="download"><span class="file-type">' +
+            fileType(l.url, l.platform) +
+            '</span><div><b>' +
+            esc(linkLabel(l, a)) +
+            '</b><small>' +
+            esc(l.platform) +
+            ' · v' +
+            esc(l.version || a.version) +
+            (l.pending || !l.url ? ' · ' + t('pending') : '') +
+            '</small>' +
+            (multiple && l.notes?.[state.lang]
+              ? '<p class="release-note">' + esc(l.notes[state.lang]) + '</p>'
+              : '') +
+            '</div><button class="btn primary" data-open-resource="' +
+            esc(l.id) +
+            '" data-resource-type="link" data-app="' +
+            a.id +
+            '"' +
+            (l.pending || !l.url ? ' disabled' : '') +
+            '>' +
+            (l.pending || !l.url
+              ? t('soon')
+              : l.url.startsWith('apk:') || /\.apk(?:[?#]|$)/i.test(l.url)
+                ? wx('Download', 'İndir')
+                : t('open')) +
+            ' ↗</button></div>',
+        )
+        .join('')
+    );
+  }
+
+  function fileType(url, platform) {
+    const ext = String(url || '')
+      .split(/[?#]/)[0]
+      .split('.')
+      .pop()
+      .toUpperCase();
+    return ['APK', 'IPA', 'EXE', 'MSI', 'PDF', 'ZIP', 'DMG'].includes(ext)
+      ? ext
+      : platform === 'Web'
+        ? 'Web'
+        : platform;
+  }
+  function resourcesMarkup(a) {
+    let html = '';
+    if (a.images.length)
+      html +=
+        '<h3>' +
+        t('screenshots') +
+        '</h3><div class="screenshots-gallery">' +
+        a.images
+          .map((entry, i) => {
+            const image = typeof entry === 'string' ? { url: entry } : entry;
+            return (
+              '<figure><img src="' +
+              esc(filePath(image.url)) +
+              '" loading="lazy" alt="' +
+              esc(
+                image.caption?.[state.lang] || local(a).name + ' · ' + (i + 1),
+              ) +
+              '">' +
+              (image.caption?.[state.lang]
+                ? '<figcaption>' +
+                  esc(image.caption[state.lang]) +
+                  '</figcaption>'
+                : '') +
+              '</figure>'
+            );
+          })
+          .join('') +
+        '</div>';
+    if (a.documents.length)
+      html +=
+        '<h3>' +
+        t('documents') +
+        '</h3>' +
+        a.documents
+          .map(
+            (d) =>
+              '<div class="download"><span class="file-type">' +
+              fileType(d.url, 'PDF') +
+              '</span><div><b>' +
+              esc(
+                d.title?.[state.lang] ||
+                  d.title?.en ||
+                  d.title?.tr ||
+                  t('documents'),
+              ) +
+              '</b></div><button class="btn" data-open-resource="' +
+              esc(d.id) +
+              '" data-resource-type="document" data-app="' +
+              a.id +
+              '">' +
+              t('open') +
+              ' ↗</button></div>',
+          )
+          .join('');
+    return html;
+  }
+  function openResource(appId, kind, id) {
+    window.open(
+      bridge.openPath('app:' + appId, kind, id),
+      '_blank',
+      'noopener,noreferrer',
+    );
+  }
+  function safeResource(url, kind) {
+    if (kind === 'image' && /^data:image\/(png|jpeg|webp);base64,/.test(url))
+      return true;
+    if (
+      kind === 'document' &&
+      /^data:application\/(pdf|msword|vnd\.[a-zA-Z0-9.+-]+|octet-stream);base64,/.test(
+        url,
+      )
+    )
+      return true;
+    if (/^\/api\/experience\/files\/[0-9a-f-]{36}$/i.test(url)) return true;
+    if (kind === 'link' && /^apk:[0-9a-f-]{36}$/i.test(url)) return true;
+    if (
+      (kind === 'document' && url === 'guide.html') ||
+      (kind === 'image' && url === 'sample-screen.svg')
+    )
+      return true;
+    try {
+      const u = new URL(url);
+      return u.protocol === 'https:' && !u.username && !u.password;
+    } catch {
+      return false;
+    }
+  }
+  function resourceId() {
+    return (
+      'resource-' +
+      (crypto.randomUUID?.() ||
+        Date.now() + '-' + Math.random().toString(36).slice(2))
+    );
+  }
+
+  function resourceRow(kind, item = {}) {
+    const id = item.id || resourceId(),
+      lang = editorContext.language;
+    editorContext.resources[kind][id] = structuredClone({ ...item, id });
+    return (
+      '<div class="resource-row compact-link" data-resource-row="link" data-resource-id="' +
+      esc(id) +
+      '"><div class="link-top"><label>' +
+      t('platforms') +
+      '<select name="resourcePlatform">' +
+      ['Web', 'iOS', 'Android', 'Windows']
+        .map(
+          (p) =>
+            '<option' +
+            (p === (item.platform || 'Web') ? ' selected' : '') +
+            '>' +
+            p +
+            '</option>',
+        )
+        .join('') +
+      '</select></label><label>' +
+      t('version') +
+      '<input name="resourceVersion" value="' +
+      esc(item.version || '1.0.0') +
+      '" maxlength="64"></label><button type="button" class="text-remove" data-remove-resource aria-label="' +
+      t('remove') +
+      '">×</button></div><label class="delivery-label">' +
+      wx('Delivery', 'Edinme şekli') +
+      '<select name="resourceDelivery"><option value="url"' +
+      (!item.url?.startsWith('apk:') ? ' selected' : '') +
+      '>' +
+      wx('Link', 'Bağlantı') +
+      '</option><option value="apk"' +
+      (item.url?.startsWith('apk:') ? ' selected' : '') +
+      '>APK</option></select></label><label class="field resource-url-field">' +
+      wx('Address', 'Adres') +
+      '<input name="resourceUrl" value="' +
+      esc(item.url || '') +
+      '" placeholder="https://…"></label><label class="field apk-upload-section"' +
+      (item.url?.startsWith('apk:') ? '' : ' hidden') +
+      '>APK<input type="file" data-apk-upload accept=".apk"><span class="apk-status" role="status"></span></label><label class="check"><input type="checkbox" name="resourcePending"' +
+      (item.pending ? ' checked' : '') +
+      '>' +
+      t('linkPending') +
+      '</label></div>'
+    );
+  }
+  function addAssetRow(kind) {
+    if (!editorContext?.resources?.[kind]) return;
+    const row =
+      kind === 'link'
+        ? {
+            platform: 'Web',
+            version: '1.0.0',
+            url: '',
+            pending: true,
+            label: {},
+          }
+        : { url: '' };
+    $(kind + '-rows').insertAdjacentHTML('beforeend', resourceRow(kind, row));
+    refreshPrivatePreview();
+  }
+
+  function updateDelivery(row) {
+    const apk = row.querySelector('[name=resourceDelivery]').value === 'apk';
+    row.querySelector('.apk-upload-section').hidden = !apk;
+    row.querySelector('.resource-url-field').hidden = apk;
+    if (apk) {
+      row.querySelector('[name=resourcePlatform]').value = 'Android';
+      const android = document.querySelector(
+        '#editor-form [name=platforms][value=Android]',
+      );
+      if (android) android.checked = true;
+    } else if (
+      row.querySelector('[name=resourceUrl]').value.startsWith('apk:')
+    ) {
+      row.querySelector('[name=resourceUrl]').value = '';
+      row.querySelector('[name=resourcePending]').checked = true;
+    }
+  }
+  function readAssets(form, lang) {
+    const result = {
+      links: [],
+      documents: structuredClone(editorContext.originalApp?.documents || []),
+      images: structuredClone(editorContext.originalApp?.images || []),
+    };
+    for (const row of form.querySelectorAll('[data-resource-row]')) {
+      const id = row.dataset.resourceId,
+        previous = editorContext.resources.link[id] || {},
+        url = row.querySelector('[name=resourceUrl]').value.trim(),
+        platform = row.querySelector('[name=resourcePlatform]').value,
+        version = row.querySelector('[name=resourceVersion]').value.trim(),
+        pending = row.querySelector('[name=resourcePending]').checked;
+      if (!version || (!pending && !url) || (url && !safeResource(url, 'link')))
+        throw Error(t('linksRequired'));
+      const labels =
+        typeof previous.label === 'string'
+          ? { en: previous.label, tr: previous.label }
+          : previous.label || {};
+      result.links.push({
+        ...previous,
+        id,
+        url,
+        platform,
+        version,
+        pending,
+        label: {
+          ...labels,
+          [lang]:
+            labels[lang] ||
+            form.elements.namedItem('name').value + ' · ' + platform,
+        },
+      });
+    }
+    const removed = editorContext.removedFiles || [];
+    result.documents = result.documents.filter((d) => !removed.includes(d.id));
+    result.images = result.images.filter(
+      (d, i) => !removed.includes(d.id || 'old-image-' + i),
+    );
+    for (const file of editorContext.uploads || []) {
+      if (file.type.startsWith('image/')) {
+        if (!result.images.some((r) => r.id === file.id))
+          result.images.push({
+            id: file.id,
+            url: file.url,
+            caption: { [lang]: file.name },
+          });
+      } else if (!result.documents.some((r) => r.id === file.id))
+        result.documents.push({
+          id: file.id,
+          url: file.url,
+          title: { [lang]: file.name },
+        });
+    }
+    return result;
+  }
+  function privateCard(a) {
+    return (
+      '<article class="private-card compact-card"><div class="card-open"><span class="short-logo">' +
+      art(a) +
+      '</span><span class="short-info"><h3>' +
+      esc(local(a).name) +
+      '</h3>' +
+      labelsMarkup(a) +
+      '</span></div></article>'
+    );
+  }
+  function refreshPrivatePreview() {
+    const f = $('editor-form'),
+      preview = $('private-card');
+    if (!f || !preview || !['app', 'newapp'].includes(editorContext?.kind))
+      return;
+    const original = appById(editorContext.id) || {
+        id: 'draft',
+        en: {},
+        tr: {},
+        labels: [],
+        comments: [],
+        asset: null,
+        image: '',
+        color: '#d61530',
+      },
+      a = structuredClone(original),
+      lang = editorContext.language;
+    a[lang] = {
+      ...a[lang],
+      name: f.elements.namedItem('name')?.value || '',
+      summary: f.elements.namedItem('description')?.value || '',
+      description: f.elements.namedItem('description')?.value || '',
+    };
+    a.version = f.elements.namedItem('version')?.value || '';
+    a.featuredComment = f.elements.namedItem('featuredComment')?.value || null;
+    a.platforms = [...f.querySelectorAll('[name=platforms]:checked')].map(
+      (e) => e.value,
+    );
+    a.categories = [...f.querySelectorAll('[name=categories]:checked')].map(
+      (e) => e.value,
+    );
+    a.labels = [...f.querySelectorAll('[name=labels]:checked')].map(
+      (e) => e.value,
+    );
+    a.color = f.elements.namedItem('color')?.value || a.color;
+    a.symbol = f.elements.namedItem('symbol')?.value || a.symbol;
+    if (editorContext.imagePreview) a.image = editorContext.imagePreview;
+    preview.innerHTML = privateCard(a);
+  }
+  function dismissMenus(target) {
+    if (state.account && !target.closest('.account-pop,#account-toggle')) {
+      state.account = false;
+      document.querySelector('.account-pop')?.remove();
+      $('account-toggle')?.setAttribute('aria-expanded', 'false');
+    }
+    if (state.expanded && !target.closest('.categorynav')) {
+      state.expanded = null;
+      document
+        .querySelectorAll('.categoryapps')
+        .forEach((e) => (e.hidden = true));
+      document
+        .querySelectorAll('.category-expand')
+        .forEach((e) => e.setAttribute('aria-expanded', 'false'));
+    }
+    if (!target.closest('.search-wrap')) hideSuggestions();
+  }
+  onDocument('pointerdown', (e) => dismissMenus(e.target));
+  onDocument('click', async (e) => {
+    if (
+      !$('editDialog').open &&
+      !$('mobileDetail').open &&
+      state.selected &&
+      !e.target.closest(
+        'button,a,input,select,textarea,label,summary,.detail-pane,.appcard,.featured-card,.categorynav,.filter-panel,.search-wrap,.active-filters,.account-pop',
+      )
+    )
+      closeDetail();
+  });
+  for (const [id, close] of [
+    ['editDialog', () => closeEditor()],
+    ['mobileDetail', () => closeDetail()],
+  ])
+    $(id).addEventListener('click', (e) => {
+      if (e.target !== $(id)) return;
+      e.stopPropagation();
+      close();
+    });
+  $('mobileDetail').addEventListener('cancel', (e) => {
+    e.preventDefault();
+    closeDetail();
+  });
+  onDocument('keydown', (e) => {
+    if (
+      e.key !== 'Escape' ||
+      $('editDialog').open ||
+      $('mobileDetail').open ||
+      e.target.id === 'search'
+    )
+      return;
+    if (state.account || state.expanded) {
+      dismissMenus(document.body);
+      return;
+    }
+    if (state.selected) closeDetail();
+  });
+
+  function environmentLabel() {
+    return bridge.bootstrap.environment === 'Test'
+      ? '<span class="env">Test</span>'
+      : '';
+  }
+  function mobileHeader() {
+    return (
+      '<header class="topbar page-width mobile-topbar ' +
+      (state.mobileMenu ? 'mobile-menu-open' : '') +
+      '"><button class="mobile-menu-button" data-mobile-menu aria-expanded="' +
+      !!state.mobileMenu +
+      '" aria-label="' +
+      wx(
+        state.mobileMenu ? 'Close menu' : 'Menu',
+        state.mobileMenu ? 'Menüyü kapat' : 'Menü',
+      ) +
+      '">' +
+      (state.mobileMenu ? '×' : '☰') +
+      '</button><div class="mobile-menu-sheet"><button class="brand" data-home aria-label="' +
+      t('store') +
+      '">' +
+      (data.logo
+        ? '<img src="' + esc(filePath(data.logo)) + '" alt="Arçelik">'
+        : '<span class="brand-wordmark" role="img" aria-label="Arçelik"></span>') +
+      '<span class="brand-title">' +
+      t('store') +
+      '</span></button><div class="mobile-menu-profile"><span class="avatar">' +
+      esc(state.person.initials) +
+      '</span><b>' +
+      esc(state.person.name) +
+      '</b>' +
+      environmentLabel() +
+      '</div><div class="mobile-menu-preferences"><button class="mobile-menu-action" data-theme>' +
+      svg('moon') +
+      t('themeLabel') +
+      ' · ' +
+      t(state.theme) +
+      '</button>' +
+      languageControl() +
+      '</div><button class="mobile-menu-action" data-help>' +
+      wx('Suggestions & complaints', 'Öneri ve şikayet') +
+      ' ↗</button></div></header>'
+    );
+  }
+
+  function previewAccounts() {
+    if (bridge.bootstrap.environment !== 'Test') return '';
+    return (
+      '<details class="account-profiles"' +
+      (bridge.bootstrap.environment !== 'Test' ? ' hidden' : '') +
+      (previewPeople().length <= 3 ? ' open' : '') +
+      '><summary>' +
+      t('rolePreview') +
+      '</summary>' +
+      previewPeople()
+        .map(
+          (p) =>
+            '<button class="person" data-person="' +
+            p.id +
+            '"><span class="avatar">' +
+            esc(p.initials) +
+            '</span><span>' +
+            esc(p.name) +
+            '<small>' +
+            t(
+              p.synthetic
+                ? p.testRole === 'admin'
+                  ? 'admin'
+                  : 'employee'
+                : data.admins.includes(p.id)
+                  ? 'admin'
+                  : 'employee',
+            ) +
+            '</small></span>' +
+            (state.person.id === p.id ? '✓' : '') +
+            '</button>',
+        )
+        .join('') +
+      '</details>'
+    );
+  }
+  function header() {
+    if (innerWidth < 900) return mobileHeader();
+    return (
+      '<header class="topbar page-width ' +
+      (state.mobileMenu ? 'mobile-menu-open' : '') +
+      '"><button class="brand" data-home aria-label="' +
+      esc(t('back')) +
+      '">' +
+      (data.logo
+        ? '<img src="' + esc(filePath(data.logo)) + '" alt="Arçelik">'
+        : '<span class="brand-wordmark" role="img" aria-label="Arçelik"></span>') +
+      '<span class="brand-title">' +
+      t('store') +
+      '</span></button>' +
+      environmentLabel() +
+      '' +
+      quick('logo', null, 'editLogo') +
+      '<button class="mobile-menu-button" data-mobile-menu aria-expanded="' +
+      !!state.mobileMenu +
+      '" aria-label="' +
+      wx('Menu', 'Menü') +
+      '">☰</button><div class="tools">' +
+      (isAdmin()
+        ? '<button class="btn primary manage-button" data-manage aria-label="' +
+          esc(t('manage')) +
+          '">' +
+          svg('gear') +
+          '<span class="manage-label">' +
+          t('manage') +
+          '</span></button>'
+        : '') +
+      '<button class="icon-btn theme-button" data-theme aria-label="' +
+      esc(t('theme')) +
+      '">' +
+      svg('moon') +
+      '</button>' +
+      languageControl() +
+      '<button class="account" id="account-toggle" data-account aria-expanded="' +
+      state.account +
+      '" aria-label="' +
+      esc(t('account')) +
+      '"><span class="avatar">' +
+      state.person.initials +
+      '</span><span class="name">' +
+      state.person.name +
+      '</span></button></div></header>' +
+      (state.account
+        ? '<div class="account-pop"><div class="account-intro"><b>' +
+          esc(state.person.name) +
+          '</b><small>' +
+          t(isAdmin() ? 'admin' : 'employee') +
+          '</small></div>' +
+          previewAccounts() +
+          '' +
+          testLocationMarkup() +
+          '<button class="account-help" data-help>✧ ' +
+          wx('Suggestions & complaints', 'Öneri ve şikayet') +
+          ' ↗</button><button class="btn" data-theme>' +
+          svg('moon') +
+          t('themeLabel') +
+          ' · ' +
+          t(state.theme) +
+          '</button>' +
+          '</div>'
+        : '')
+    );
+  }
+  function searchMarkup() {
+    return (
+      '<div class="search-wrap">' +
+      quick('search', null, 'editSearch') +
+      '<form id="search-form" class="search-box" role="search"><svg viewBox="0 0 24 24" aria-hidden="true">' +
+      icons.search +
+      '</svg><input id="search" type="search" autocomplete="off" maxlength="200" aria-label="' +
+      esc(t('search')) +
+      '" placeholder="' +
+      esc(searchPlaceholder()) +
+      '" value="' +
+      esc(state.query) +
+      '" role="combobox" aria-expanded="false" aria-controls="search-pop" aria-autocomplete="list"><button type="submit" class="icon-btn" aria-label="' +
+      esc(t('search')) +
+      '">' +
+      svg('arrow') +
+      '</button></form><div id="search-pop" class="search-pop" role="listbox" hidden></div></div>'
+    );
+  }
+  function searchPlaceholder() {
+    const featured = data.search.ids
+      .map(appById)
+      .filter((a) => a?.active && !a.archived);
+    return featured.length
+      ? (data.search[state.lang] || t('searchExamples')) +
+          ' ' +
+          local(featured[state.rotation % featured.length]).name
+      : t('search');
+  }
+  function categoryMarkup() {
+    const apps = appList();
+    return (
+      '<aside class="categorynav"><div class="categorytitle"><h3>' +
+      t('categories') +
+      '</h3>' +
+      quick('categories', null, 'editCategory') +
+      '</div><div class="category-list">' +
+      [
+        { id: 'all' },
+        ...data.categories.filter((c) =>
+          apps.some((a) => a.categories.includes(c.id)),
+        ),
+      ]
+        .map((c) => {
+          const list =
+            c.id === 'all'
+              ? apps
+              : apps.filter((a) => a.categories.includes(c.id));
+          const expanded = state.expanded === c.id;
+          return (
+            '<section class="categoryitem ' +
+            ((
+              c.id === 'all'
+                ? !state.multi.category.length
+                : state.multi.category.includes(c.id)
+            )
+              ? 'active'
+              : '') +
+            '"><div class="categoryrow"><button class="category-button" data-category="' +
+            c.id +
+            '" aria-pressed="' +
+            (c.id === 'all'
+              ? !state.multi.category.length
+              : state.multi.category.includes(c.id)) +
+            '"><span class="category-dot"></span><span class="name">' +
+            esc(c.id === 'all' ? t('all') : catName(c.id)) +
+            '</span><span class="pill">' +
+            list.length +
+            '</span></button><button class="category-expand" data-expand="' +
+            c.id +
+            '" aria-expanded="' +
+            expanded +
+            '" aria-label="' +
+            esc(t(expanded ? 'collapseCategory' : 'expandCategory')) +
+            '">' +
+            svg('chevron') +
+            '</button></div><div class="categoryapps"' +
+            (expanded ? '' : ' hidden') +
+            '>' +
+            list
+              .map(
+                (a) =>
+                  '<button class="category-app" data-open="' +
+                  a.id +
+                  '">' +
+                  appIcon(a) +
+                  '<span>' +
+                  esc(local(a).name) +
+                  '</span></button>',
+              )
+              .join('') +
+            '</div></section>'
+          );
+        })
+        .join('') +
+      '</div></aside>'
+    );
+  }
+  function cardMarkup(a) {
+    return (
+      '<article class="appcard compact-card ' +
+      (state.selected === a.id ? 'selected' : '') +
+      '"><button class="card-open" data-open="' +
+      a.id +
+      '" aria-label="' +
+      esc(local(a).name) +
+      '"><span class="short-logo">' +
+      art(a) +
+      '</span><span class="short-info"><h3>' +
+      esc(local(a).name) +
+      '</h3>' +
+      labelsMarkup(a) +
+      '</span></button><div class="short-tools">' +
+      socialButtons('app:' + a.id) +
+      quick('app', a.id, 'editApp') +
+      '</div></article>'
+    );
+  }
+  function detailMarkup(a, mobile = false) {
+    return (
+      '<div class="detail-content concise-detail"><div class="detail-heading">' +
+      appIcon(a) +
+      '<div><h2>' +
+      esc(local(a).name) +
+      '</h2><span class="detail-platforms">' +
+      a.platforms.join(' · ') +
+      (a.version ? ' · v' + esc(a.version) : '') +
+      '</span></div><button class="icon-btn" data-close-detail aria-label="' +
+      t('close') +
+      '">' +
+      svg('close') +
+      '</button></div><p class="concise-summary">' +
+      esc((local(a).description || local(a).summary).slice(0, 150)) +
+      '</p>' +
+      labelsMarkup(a) +
+      '<section class="concise-downloads"><h3>' +
+      t('getApp') +
+      '</h3>' +
+      downloadMarkup(a) +
+      '</section><div class="detail-secondary">' +
+      resourcesMarkup(a) +
+      '' +
+      (a.platforms.every((p) => p === 'Web')
+        ? ''
+        : '<details><summary>' +
+          t('comments') +
+          ' · ' +
+          a.comments.length +
+          '</summary>' +
+          commentsMarkup(a) +
+          '</details>') +
+      '</div><div class="detail-bottom">' +
+      (isAdmin()
+        ? '<button class="btn" data-edit="app" data-id="' +
+          a.id +
+          '">' +
+          svg('edit') +
+          t('editApp') +
+          '</button>'
+        : '') +
+      '</div></div>'
+    );
+  }
+
+  for (const r of data.webEntries) r.group ??= 'Beko';
+  let personal = {
+    [state.person.id]: structuredClone(bridge.bootstrap.personal),
+  };
+  Object.assign(state, { webQuery: '', webGroup: 'all', webLimit: 8 });
+  function myItems() {
+    return (personal[state.person.id] ??= { favorites: [], likes: [] });
+  }
+  function socialButtons(id) {
+    const mine = myItems();
+    const glyph = (key, selected) =>
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="' +
+      (selected ? 'currentColor' : 'none') +
+      '" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+      (key === 'likes'
+        ? '<path d="M20.8 4.7a5.5 5.5 0 0 0-7.8 0L12 5.8l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.5a5.5 5.5 0 0 0 0-7.8Z"/>'
+        : '<path d="m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L3 9.6l6.2-.9L12 3Z"/>') +
+      '</svg>';
+    return (
+      '<div class="social-actions">' +
+      [['favorites', wx('Save to favourites', 'Favorilere ekle')]]
+        .map(
+          ([key, label]) =>
+            '<button type="button" data-social="' +
+            key +
+            '" data-social-id="' +
+            esc(id) +
+            '" aria-pressed="' +
+            mine[key].includes(id) +
+            '" aria-label="' +
+            label +
+            '" title="' +
+            label +
+            '">' +
+            glyph(key, mine[key].includes(id)) +
+            '</button>',
+        )
+        .join('') +
+      '</div>'
+    );
+  }
+
+  data.uiOverrides.en.connectaTag ??= 'MAIN WORK TOOL · INTERNAL WEB APP';
+  data.uiOverrides.tr.connectaTag ??=
+    'ANA ÇALIŞMA ARACIN · ŞİRKET İÇİ WEB UYGULAMASI';
+  Object.assign(state, {
+    promo: 0,
+    testLocation: 'profile',
+    testCountry: '',
+    testCompany: 'profile',
+  });
+  const cafeteria = data.webEntries.find((r) => r.id === 'cafeteria');
+  if (cafeteria) cafeteria.targetLocation ??= 'sutluce-b';
+  function visibleWeb(r) {
+    return true;
+  }
+
+  data.testProfiles ??= [];
+
+  function previewPeople() {
+    return bridge.bootstrap.environment === 'Test'
+      ? bridge.bootstrap.authMode === 'TestProfiles'
+        ? testProfileRecords()
+        : [...PEOPLE, ...data.testProfiles]
+      : [state.person];
+  }
+
+  for (const lang of ['en', 'tr']) {
+    delete data.uiOverrides[lang].manage;
+    delete data.uiOverrides[lang].adminTitle;
+  }
+  function testLocationMarkup() {
+    return '';
+  }
+
+  function favoriteRecords() {
+    return [
+      ...data.apps
+        .filter((a) => a.active && !a.archived)
+        .map((a) => ({
+          id: 'app:' + a.id,
+          name: local(a).name,
+          kind: a.platforms.every((p) => p === 'Web') ? 'web' : 'app',
+          app: a.id,
+          record: a,
+        })),
+      ...data.webEntries.filter(visibleWeb).map((r) => ({
+        id: 'web:' + r.id,
+        name: content(r).name,
+        kind: 'web',
+        url: r.url,
+        record: r,
+      })),
+      {
+        id: 'web:behome',
+        name: content(data.webPortal).name,
+        kind: 'portal',
+        url: data.webPortal.url,
+        record: data.webPortal,
+      },
+    ].filter((r) => myItems().favorites.includes(r.id));
+  }
+  function favoriteLogo(r) {
+    return r.app
+      ? art(r.record)
+      : r.record.image
+        ? '<img src="' + esc(r.record.image) + '" alt="">'
+        : '<span class="favorite-monogram">' +
+          esc(r.record.symbol || r.name.slice(0, 1)) +
+          '</span>';
+  }
+  function favoritesMarkup() {
+    const records = favoriteRecords();
+    return (
+      '<aside class="favorites-section ' +
+      (state.favoritesOpen ? 'favorites-open' : '') +
+      '" id="personal-favourites" aria-label="' +
+      wx('Favourites', 'Favoriler') +
+      '"><button class="favorites-toggle" data-favorites-toggle aria-expanded="' +
+      !!state.favoritesOpen +
+      '"><span class="stack-preview" aria-hidden="true">' +
+      (records.length
+        ? records
+            .slice(0, 3)
+            .map((r) => '<i>' + favoriteLogo(r) + '</i>')
+            .join('')
+        : '<i>☆</i>') +
+      '</span><span class="stack-title">' +
+      wx('Favourites', 'Favoriler') +
+      '</span><span class="stack-count">' +
+      records.length +
+      '</span></button><div class="favorite-heading"><h2>☆ ' +
+      wx('Your favourites', 'Favorilerin') +
+      '</h2><span>' +
+      records.length +
+      '</span></div>' +
+      (records.length
+        ? '<div class="favorite-strip">' +
+          records
+            .map(
+              (r, i) =>
+                '<div class="favorite-item" style="--favorite-hue:' +
+                ((i * 47 + 190) % 360) +
+                '">' +
+                (r.app && r.kind === 'app'
+                  ? '<button class="favorite-launch" data-open="' +
+                    r.app +
+                    '" title="' +
+                    esc(r.name) +
+                    '">'
+                  : '<a class="favorite-launch" title="' +
+                    esc(r.name) +
+                    '" target="_blank" rel="noopener noreferrer" href="' +
+                    esc(bridge.openPath(r.id)) +
+                    '">') +
+                '<span class="favorite-orb" aria-hidden="true">' +
+                favoriteLogo(r) +
+                '<span class="orb-arrow">↗</span></span><span class="favorite-label"><b>' +
+                esc(r.name) +
+                '</b><small>' +
+                {
+                  app: wx('Application', 'Uygulama'),
+                  web: wx('Web tool', 'Web aracı'),
+                  portal: wx('Portal', 'Portal'),
+                }[r.kind] +
+                '</small></span>' +
+                (r.app && r.kind === 'app' ? '</button>' : '</a>') +
+                '<button class="favorite-remove" data-social="favorites" data-social-id="' +
+                r.id +
+                '" aria-label="' +
+                esc(
+                  wx('Remove from favourites', 'Favorilerden çıkar') +
+                    ' · ' +
+                    r.name,
+                ) +
+                '">×</button></div>',
+            )
+            .join('') +
+          '</div>'
+        : '<p class="favorite-empty">' +
+          wx(
+            'Keep your everyday tools here. Tap ☆ on a card to save it.',
+            'Günlük araçların burada elinin altında olsun. Karttaki ☆ ile favorilerine ekle.',
+          ) +
+          '</p>') +
+      '<small class="personal-note">' +
+      wx('Your personal selections', 'Sana özel seçimler') +
+      '</small></aside>'
+    );
+  }
+
+  state.webScope = 'internal';
+  for (const r of data.webEntries)
+    r.scope ??=
+      r.type === 'webapp' || r.en.name === 'Mate' ? 'internal' : 'external';
+  data.webPortal.background ??= 'assets/portal-office.jpg';
+  function webManagePanel() {
+    return (
+      '<h2>' +
+      t('webManage') +
+      '</h2><div class="web-manage-actions"><button class="btn primary" data-edit="newWebEntry">+ ' +
+      wx('Add tool', 'Araç ekle') +
+      '</button><button class="btn" data-edit="newWebEntry" data-new-portal>' +
+      wx('Add portal', 'Portal ekle') +
+      '</button></div>' +
+      [
+        ['internal', t('internalLabel')],
+        ['external', t('externalLabel')],
+        ['portal', t('portalTitle')],
+      ]
+        .map(
+          ([scope, label]) =>
+            '<details class="web-admin-group" open><summary>' +
+            esc(label) +
+            '</summary>' +
+            (scope === 'portal'
+              ? [
+                  data.webPortal,
+                  ...data.webEntries.filter((r) => r.scope === 'portal'),
+                ]
+              : scope === 'internal'
+                ? [
+                    appById('connecta'),
+                    ...data.webEntries.filter((r) => r.scope === scope),
+                  ]
+                : data.webEntries.filter((r) => r.scope === scope)
+            )
+              .map(
+                (r) =>
+                  '<button class="web-admin-row" data-edit="webEntry" data-id="' +
+                  r.id +
+                  '"><span><b>' +
+                  esc(content(r).name) +
+                  '</b><small>' +
+                  esc(r.url) +
+                  '</small></span>' +
+                  svg('edit') +
+                  '</button>',
+              )
+              .join('') +
+            '</details>',
+        )
+        .join('') +
+      '<div class="web-title-edit">' +
+      ['webTitle', 'portalTitle', 'internalLabel', 'externalLabel']
+        .map(
+          (k) =>
+            '<button class="btn" data-edit="translation" data-id="' +
+            k +
+            '">' +
+            t(k) +
+            ' ' +
+            svg('edit') +
+            '</button>',
+        )
+        .join('') +
+      '</div>'
+    );
+  }
+  function portalCard(r) {
+    return (
+      '<article class="portal-photo-card" style="--portal-bg:url(&quot;' +
+      esc(r.background || 'assets/portal-office.jpg') +
+      '&quot;)"><a href="' +
+      esc(bridge.openPath('web:' + r.id)) +
+      '" target="_blank" rel="noopener noreferrer"><span class="portal-card-kicker">' +
+      wx('COMPANY PORTAL', 'ŞİRKET PORTALI') +
+      '</span><span class="portal-card-copy"><h2>' +
+      esc(content(r).name) +
+      '</h2><p>' +
+      esc(content(r).description) +
+      '</p><span class="portal-open">' +
+      wx('Open portal', 'Portalı aç') +
+      ' ↗</span></span></a>' +
+      quick('webEntry', r.id, 'edit') +
+      socialButtons('web:' + r.id) +
+      '</article>'
+    );
+  }
+  function setupWebWizard() {
+    const form = $('editor-form');
+    if (!form) return;
+    form.dataset.webWizard = 'true';
+    form.dataset.step = '0';
+    const steps = [...form.querySelectorAll('[data-web-step]')];
+    let current = 0;
+    const nav = document.createElement('div');
+    nav.className = 'web-wizard-nav';
+    form.querySelector('.dialog-body').prepend(nav);
+    const move = (n) => {
+      current = n;
+      form.dataset.step = n;
+      steps.forEach((el, i) => (el.hidden = innerWidth <= 680 && i !== n));
+      nav.innerHTML = [0, 1, 2]
+        .map(
+          (i) =>
+            '<span class="' +
+            (i === n ? 'current' : '') +
+            '">' +
+            (i + 1) +
+            ' · ' +
+            [
+              wx('Type', 'Tür'),
+              wx('Content', 'İçerik'),
+              wx('Link & image', 'Bağlantı ve görsel'),
+            ][i] +
+            '</span>',
+        )
+        .join('');
+      form.querySelector('[type=submit]').hidden = innerWidth <= 680 && n < 2;
+      let controls = form.querySelector('.wizard-buttons');
+      if (!controls) {
+        controls = document.createElement('div');
+        controls.className = 'wizard-buttons';
+        form.querySelector('.dialog-actions').prepend(controls);
+      }
+      controls.innerHTML =
+        innerWidth <= 680
+          ? (n > 0
+              ? '<button type="button" class="btn" data-wizard-back>' +
+                wx('Back', 'Geri') +
+                '</button>'
+              : '') +
+            (n < 2
+              ? '<button type="button" class="btn primary" data-wizard-next>' +
+                wx('Continue', 'Devam') +
+                ' →</button>'
+              : '')
+          : '';
+    };
+    form.addEventListener('click', (e) => {
+      if (e.target.closest('[data-wizard-back]'))
+        move(Math.max(0, current - 1));
+      if (e.target.closest('[data-wizard-next]')) {
+        const invalid = [...steps[current].querySelectorAll('[required]')].find(
+          (el) => !el.value.trim(),
+        );
+        if (invalid) {
+          invalid.focus();
+          return;
+        }
+        move(Math.min(2, current + 1));
+      }
+    });
+    form.addEventListener('change', (e) => {
+      if (innerWidth <= 680 && e.target.name === 'webScope') move(1);
+    });
+    move(0);
+  }
+  function webEntry(id) {
+    return id === 'connecta'
+      ? appById('connecta')
+      : id === 'behome'
+        ? data.webPortal
+        : data.webEntries.find((r) => r.id === id);
+  }
+  function webCard(r, i) {
+    const c = content(r),
+      via = r.url === 'https://arcelik.sharepoint.com/sites/BeHome';
+    return (
+      '<article class="web-tool-shell" data-web-name="' +
+      esc((c.name + ' ' + c.description).toLocaleLowerCase()) +
+      '"><a class="web-tool" href="' +
+      esc(bridge.openPath('web:' + r.id)) +
+      '" target="_blank" rel="noopener noreferrer">' +
+      (r.image
+        ? '<img class="tool-image" src="' + esc(filePath(r.image)) + '" alt="">'
+        : '<span class="tool-monogram" style="--tool-color:' +
+          ['#00879b', '#7555be', '#0078ba', '#d17a12', '#237a52'][i % 5] +
+          '">' +
+          esc(r.symbol) +
+          '</span>') +
+      '<div><h3>' +
+      esc(c.name) +
+      '</h3><p>' +
+      esc(c.description) +
+      '</p><small>' +
+      wx(
+        r.type === 'webapp'
+          ? 'WEB APPLICATION'
+          : via
+            ? 'Via BeHome'
+            : 'CONNECTED SERVICE',
+        r.type === 'webapp'
+          ? 'WEB UYGULAMASI'
+          : via
+            ? 'BeHome üzerinden'
+            : 'BAĞLANTILI HİZMET',
+      ) +
+      ' ↗</small></div></a>' +
+      quick('webEntry', r.id, 'edit') +
+      socialButtons('web:' + r.id) +
+      '</article>'
+    );
+  }
+
+  const wx = (en, tr) =>
+    data.uiOverrides[state.lang]?.['literal:' + en] ||
+    (state.lang === 'tr' ? tr : data.uiOverrides.en?.['literal:' + en] || en);
+
+  onDocument('click', async (e) => {
+    if (e.target.id === 'helpDialog') e.target.close();
+  });
+  function openHelp() {
+    const d = $('helpDialog');
+    d.innerHTML =
+      '<div class="dialog-head"><h2>' +
+      wx('Suggestions & complaints', 'Öneri ve şikayet') +
+      '</h2><button class="icon-btn" data-help-close aria-label="' +
+      t('close') +
+      '">×</button></div><div class="dialog-body"><p class="web-note">' +
+      wx(
+        'Send suggestions, complaints or application needs to your administrators.',
+        'Öneri, şikayet ve uygulama ihtiyaçlarını yöneticilerine ilet.',
+      ) +
+      '</p><label class="field">' +
+      wx('Topic', 'Konu') +
+      '<select id="feedback-topic"><option>' +
+      wx('Suggestion', 'Öneri') +
+      '</option><option>' +
+      wx('Application idea / need', 'Uygulama fikri / ihtiyaç') +
+      '</option><option>' +
+      wx('Complaint', 'Şikayet') +
+      '</option></select></label><label class="field">' +
+      wx('Message', 'Mesaj') +
+      '<textarea id="feedback-message" rows="4" maxlength="2000"></textarea></label><p id="feedback-status" class="web-note" role="status"></p><button class="btn primary" data-feedback-save>' +
+      wx('Send', 'Gönder') +
+      '</button><button class="btn" data-help-close>' +
+      t('close') +
+      '</button></div>';
+    try {
+      const draft = JSON.parse(
+        localStorage.getItem('arcelik-feedback-draft-' + state.person.id) ||
+          'null',
+      );
+      if (draft) {
+        $('feedback-message').value = draft.message || '';
+        const options = [...$('feedback-topic').options];
+        if (options.some((o) => o.value === draft.topic))
+          $('feedback-topic').value = draft.topic;
+      }
+    } catch {}
+    d.showModal();
+  }
+
+  onDocument('click', (e) => {
+    const anchor = e.target.closest('a[target="_blank"]');
+    if (!anchor) return;
+    const href = anchor.getAttribute('href');
+    const web = data.webEntries.find((r) => r.url === href);
+    const app = data.apps.find((a) => a.url === href);
+    const resource = app
+      ? 'app:' + app.id
+      : web
+        ? 'web:' + web.id
+        : href === data.webPortal.url
+          ? 'web:behome'
+          : null;
+    if (resource) {
+      e.preventDefault();
+      window.open(bridge.openPath(resource), '_blank', 'noopener,noreferrer');
+    }
+  });
+  function heroRoutes() {
+    return '';
+  }
+  function welcomeVisual() {
+    const c = content(data.copy);
+    return (
+      '<div class="hero-copy"><div class="eyebrow">' +
+      t('workplace') +
+      '</div><p class="greeting">' +
+      esc(c.greeting.replaceAll('{name}', state.person.name)) +
+      '</p><h1>' +
+      esc(c.title) +
+      '<em>' +
+      esc(c.accent) +
+      '</em></h1><p class="hero-subtitle">' +
+      esc(c.subtitle) +
+      '</p>' +
+      quick('welcome', null, 'editWelcome') +
+      heroRoutes() +
+      '</div>'
+    );
+  }
+
+  function workplaceSketch(web) {
+    return (
+      '<span class="workplace-sketch" aria-hidden="true"><svg viewBox="0 0 170 100" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      (web
+        ? '<rect x="27" y="17" width="109" height="67" rx="13" class="sketch-panel"/><path d="M28 34h107"/><circle cx="39" cy="26" r="1.6"/><circle cx="46" cy="26" r="1.6"/><circle cx="53" cy="26" r="1.6"/><circle cx="80" cy="58" r="18"/><ellipse cx="80" cy="58" rx="8" ry="18"/><path d="M62 58h36M65 47h30M65 69h30"/><path d="m119 63 4 29 7-9 10-2-21-18Z" class="sketch-cursor"/><path d="m135 52 6-4m-8-3 2-5m8 21 6 1" class="sketch-spark"/>'
+        : '<rect x="34" y="15" width="70" height="65" rx="15" class="sketch-panel"/><rect x="97" y="43" width="34" height="47" rx="9" class="sketch-device"/><path d="M54 51h29M54 61h20M100 85h29"/><path d="M70 27v18m-7-7 7 7 7-7" class="sketch-download"/><circle cx="47" cy="29" r="3"/><path d="m116 23 3-6 3 6 6 3-6 3-3 6-3-6-6-3 6-3Z" class="sketch-spark"/>') +
+      '</svg></span>'
+    );
+  }
+  function workplaceVisual() {
+    return (
+      '<div class="workplace-visual"><div class="workplace-options"><button class="workplace-node node-apps" data-destination="store"><span class="glass-spot" aria-hidden="true"></span><span class="destination-mark">↓</span><b>' +
+      wx('Applications', 'Uygulamalar') +
+      '</b><small>' +
+      wx(
+        'Download to your phone or computer.',
+        'Telefonuna veya bilgisayarına indir.',
+      ) +
+      '</small>' +
+      workplaceSketch(false) +
+      '</button><button class="workplace-node node-web" data-destination="web"><span class="glass-spot" aria-hidden="true"></span><span class="destination-mark">↗</span><b>' +
+      wx('Web & portals', 'Web ve portallar') +
+      '</b><small>' +
+      wx(
+        'Explore web tools and portals.',
+        'Web araçlarını ve portalları keşfet.',
+      ) +
+      '</small>' +
+      workplaceSketch(true) +
+      '</button></div></div>'
+    );
+  }
+  onDocument('pointermove', (e) => {
+    const card = e.target.closest('.workplace-node');
+    if (
+      !card ||
+      !matchMedia('(hover:hover) and (pointer:fine)').matches ||
+      matchMedia('(prefers-reduced-motion:reduce)').matches
+    )
+      return;
+    const rect = card.getBoundingClientRect();
+    card.style.setProperty(
+      '--spot-x',
+      ((e.clientX - rect.left) / rect.width) * 100 + '%',
+    );
+    card.style.setProperty(
+      '--spot-y',
+      ((e.clientY - rect.top) / rect.height) * 100 + '%',
+    );
+  });
+
+  function webMarkup() {
+    return (
+      '<main class="main page-width web-page"><section class="web-intro"><button class="catalogue-back" data-destination="store">← ' +
+      wx('Back to applications', 'Uygulamalara dön') +
+      '</button><div class="web-title-row"><h1>' +
+      t('webTitle') +
+      '</h1><div class="web-heading-actions">' +
+      quick('translation', 'webTitle', 'edit') +
+      quick('pageLayout', 'web', 'edit') +
+      '</div></div></section><section id="web-directory"><div class="web-toolbar"><div class="web-scope" role="group" aria-label="' +
+      t('webManage') +
+      '">' +
+      [
+        ['internal', 'internalLabel'],
+        ['external', 'externalLabel'],
+      ]
+        .map(
+          ([id, key]) =>
+            '<button data-web-scope="' +
+            id +
+            '" aria-pressed="' +
+            (state.webScope === id) +
+            '">' +
+            t(key) +
+            '</button>',
+        )
+        .join('') +
+      quick(
+        'translation',
+        state.webScope === 'internal' ? 'internalLabel' : 'externalLabel',
+        'edit',
+      ) +
+      '</div><div class="web-search"><input id="web-search" type="search" value="' +
+      esc(state.webQuery) +
+      '" placeholder="' +
+      wx('Find a tool…', 'Araç ara…') +
+      '" aria-label="' +
+      wx('Find a tool', 'Araç ara') +
+      '"><span id="web-count" aria-live="polite"></span>' +
+      quick('newWebEntry', null, 'addApp') +
+      '</div></div><div class="web-tool-grid" id="web-directory-grid"></div><div id="web-directory-more"></div></section>' +
+      (state.webScope === 'internal'
+        ? '<section class="behome-section"><div class="web-section-title"><h2>' +
+          t('portalTitle') +
+          quick('translation', 'portalTitle', 'edit') +
+          '</h2></div><div class="portal-photo-grid">' +
+          [
+            data.webPortal,
+            ...data.webEntries.filter((r) => r.scope === 'portal'),
+          ]
+            .map(portalCard)
+            .join('') +
+          '</div></section>'
+        : '') +
+      footer() +
+      '</main>'
+    );
+  }
+
+  function internalToolCard(r) {
+    const c = r._app ? local(r) : content(r);
+    const resource = (r._app ? 'app:' : 'web:') + r.id;
+    return (
+      '<article class="appcard web-app-card"><a class="card-open web-card-open" href="' +
+      esc(bridge.openPath(resource)) +
+      '" target="_blank" rel="noopener noreferrer"><span class="cover app-icon">' +
+      (r._app
+        ? art(r)
+        : r.image
+          ? '<img class="art-image" src="' +
+            esc(filePath(r.image)) +
+            '" alt="' +
+            esc(c.name) +
+            '">'
+          : '<span class="web-card-symbol" style="--tool-color:' +
+            esc(r.color || '#375b72') +
+            '">' +
+            esc(r.symbol || c.name.slice(0, 1)) +
+            '</span>') +
+      '</span><span class="identity"><h3>' +
+      esc(c.name) +
+      '</h3><span class="badges"><span class="label">' +
+      wx('Web application', 'Web uygulaması') +
+      '</span></span></span></a>' +
+      socialButtons(resource) +
+      quick(r._app ? 'app' : 'webEntry', r.id, 'edit') +
+      '</article>'
+    );
+  }
+
+  const EXTERNAL_TOPICS = [
+    ['Planning', 'Plan & organise', 'Planlama', '#b48a3c'],
+    ['People', 'Communication', 'İletişim', '#4a87b1'],
+    ['Content', 'Notes & content', 'Notlar ve içerik', '#956ab5'],
+    ['Data', 'Data & reporting', 'Veri ve raporlama', '#478c70'],
+    ['Automation', 'Automation', 'Otomasyon', '#b56d57'],
+    ['Learning', 'Learning', 'Öğrenme', '#6d7fb5'],
+    ['Beko', 'Other tools', 'Diğer araçlar', '#72808b'],
+  ];
+  state.expandedWebTopics = [];
+  function externalGroups(list) {
+    const groups = EXTERNAL_TOPICS.filter(
+      ([key]) => list.some((r) => r.group === key) || state.webGroup === key,
+    );
+    const selected = state.webGroup;
+    const chip = (key, label, color, count) =>
+      '<button type="button" data-web-group="' +
+      key +
+      '" aria-pressed="' +
+      (selected === key) +
+      '" style="--group-color:' +
+      color +
+      '"><i aria-hidden="true"></i>' +
+      label +
+      '<span>' +
+      count +
+      '</span></button>';
+    const filters =
+      '<nav class="topic-overview" aria-label="' +
+      wx('External site categories', 'Harici site kategorileri') +
+      '">' +
+      chip(
+        'all',
+        wx('All categories', 'Tüm kategoriler'),
+        'var(--muted)',
+        list.length,
+      ) +
+      groups
+        .map(([key, en, tr, color]) =>
+          chip(
+            key,
+            wx(en, tr),
+            color,
+            list.filter((r) => r.group === key).length,
+          ),
+        )
+        .join('') +
+      '</nav>';
+    const shown = groups
+      .filter(([key]) => selected === 'all' || selected === key)
+      .filter(([key]) => list.some((r) => r.group === key));
+    return (
+      filters +
+      (shown.length
+        ? '<div class="external-topic-columns' +
+          (selected === 'all' ? '' : ' is-filtered') +
+          '">' +
+          shown
+            .map(([key, en, tr, color]) => {
+              const rows = list.filter((r) => r.group === key),
+                expanded = state.expandedWebTopics.includes(key),
+                count = 3,
+                visible = expanded ? rows : rows.slice(0, count);
+              return (
+                '<section class="external-group" id="topic-' +
+                key +
+                '" style="--group-color:' +
+                color +
+                '"><h3>' +
+                wx(en, tr) +
+                '<span>' +
+                rows.length +
+                '</span></h3><div class="external-group-tools" id="topic-items-' +
+                key +
+                '">' +
+                visible.map(webCard).join('') +
+                '</div>' +
+                (rows.length > count
+                  ? '<button class="topic-more" data-expand-web-topic="' +
+                    key +
+                    '" aria-controls="topic-items-' +
+                    key +
+                    '" aria-expanded="' +
+                    expanded +
+                    '">' +
+                    (expanded
+                      ? wx('Show less', 'Daha az göster')
+                      : wx('Show more', 'Daha fazla göster') +
+                        ' · ' +
+                        (rows.length - count)) +
+                    ' ' +
+                    (expanded ? '−' : '+') +
+                    '</button>'
+                  : '') +
+                '</section>'
+              );
+            })
+            .join('') +
+          '</div>'
+        : '<p class="web-note">' +
+          wx('No matching tools.', 'Eşleşen araç bulunamadı.') +
+          '</p>')
+    );
+  }
+
+  function renderWebDirectory() {
+    const host = $('web-directory-grid');
+    if (!host) return;
+    const query = state.webQuery.toLocaleLowerCase(state.lang);
+    const source =
+      state.webScope === 'internal'
+        ? [
+            { ...appById('connecta'), scope: 'internal', _app: true },
+            ...data.webEntries,
+          ]
+        : data.webEntries;
+    const all = source.filter(
+      (r) =>
+        r.scope === state.webScope &&
+        visibleWeb(r) &&
+        (!query ||
+          (content(r).name + ' ' + content(r).description)
+            .toLocaleLowerCase(state.lang)
+            .includes(query)),
+    );
+    const limit =
+      innerWidth <= 680 ? state.webLimit : Math.max(12, state.webLimit);
+    host.innerHTML =
+      (state.webScope === 'external'
+        ? externalGroups(all)
+        : ordered(all, data.uiLayout.webOrder)
+            .map(internalToolCard)
+            .join('')) ||
+      '<p class="web-note">' +
+        wx('No matching tools.', 'Eşleşen araç bulunamadı.') +
+        '</p>';
+    $('web-count').textContent =
+      (state.webScope === 'external' && state.webGroup !== 'all'
+        ? all.filter((r) => r.group === state.webGroup).length
+        : all.length) +
+      ' ' +
+      wx('tools', 'araç');
+    $('web-directory-more').innerHTML = '';
+  }
+
+  onDocument('change', (e) => {
+    if (e.target.id !== 'test-company-select' || !isAdmin()) return;
+    state.testCompany = e.target.value;
+    state.testLocation =
+      state.testCompany === 'DEMO-A'
+        ? 'sutluce-b'
+        : state.testCompany === 'DEMO-B'
+          ? 'other-office'
+          : 'profile';
+    refreshView();
+  });
+  onDocument('change', (e) => {
+    if (!isAdmin()) return;
+    if (e.target.id === 'test-location') {
+      state.testLocation = e.target.value;
+      refreshView();
+    }
+    if (e.target.id === 'test-country') state.testCountry = e.target.value;
+    if (e.target.id === 'test-company') state.testCompany = e.target.value;
+  });
+  onDocument('change', (e) => {
+    if (e.target.id === 'dashboard-range' && isAdmin()) {
+      state.dashboardRange = e.target.value;
+      refreshView();
+    }
+  });
+  onDocument('change', (e) => {
+    if (
+      e.target.matches('[data-multi-filter]') ||
+      e.target.id === 'multi-sort'
+    ) {
+      if (!isMobile()) applyMultiFilters();
+    }
+  });
+  onDocument('input', (e) => {
+    if (e.target.id !== 'web-search') return;
+    state.webQuery = e.target.value;
+    state.webLimit = 8;
+    renderWebDirectory();
+  });
+
+  function storeMarkup() {
+    return (
+      '<main class="main page-width"><section class="hero" id="welcome">' +
+      welcomeVisual() +
+      workplaceVisual() +
+      '</section>' +
+      featuredSection() +
+      '<section id="application-catalogue" tabindex="-1" aria-labelledby="catalogue-title"><div class="section-heading"><div><h2 id="catalogue-title">' +
+      t('catalogue') +
+      quick('pageLayout', 'apps', 'edit') +
+      '</h2></div>' +
+      searchMarkup() +
+      '</div><div id="browse-shell" class="browse-shell ' +
+      (state.selected && !isMobile() ? 'has-detail' : '') +
+      '"><details class="category-disclosure"' +
+      (innerWidth > 680 || state.categoryMenuOpen === true ? ' open' : '') +
+      '><summary>' +
+      t('categoriesMenu') +
+      svg('chevron') +
+      '</summary>' +
+      categoryMarkup() +
+      '</details><section class="catalogue-content"><div class="catalogue-top"><span id="result-count" aria-live="polite">' +
+      results().length +
+      ' ' +
+      t('applications') +
+      '</span>' +
+      layoutControls() +
+      '</div><div id="filters-host">' +
+      filterMarkup() +
+      '</div><div id="results" data-layout="' +
+      state.layout +
+      '" class="results ' +
+      (state.selected && !isMobile() ? 'has-detail' : '') +
+      '"><div class="grid" id="grid">' +
+      gridMarkup() +
+      '</div>' +
+      desktopDetail() +
+      '</div></section></div></section>' +
+      footer() +
+      '</main>' +
+      (isAdmin()
+        ? '<button class="mobile-edit" data-quick-mobile aria-label="' +
+          esc(t('quickEdit')) +
+          '">' +
+          svg('edit') +
+          '</button>'
+        : '')
+    );
+  }
+  function footer() {
+    return '';
+  }
+  function layoutControls() {
+    return (
+      '<div class="view-switch" role="group" aria-label="' +
+      esc(t('viewLabel')) +
+      '">' +
+      [
+        ['cards', 'viewCards'],
+        ['compare', 'viewCompare'],
+      ]
+        .map(
+          ([id, key]) =>
+            '<button type="button" data-layout="' +
+            id +
+            '" aria-pressed="' +
+            (state.layout === id) +
+            '" aria-label="' +
+            esc(t(key)) +
+            '" title="' +
+            esc(t(key)) +
+            '">' +
+            svg(id) +
+            '<span>' +
+            t(key) +
+            '</span></button>',
+        )
+        .join('') +
+      '</div>'
+    );
+  }
+
+  onDocument('change', (e) => {
+    if (e.target.matches('[data-compare-choice]')) {
+      state.compareIds[Number(e.target.dataset.compareChoice)] = e.target.value;
+      updateResults();
+    }
+  });
+  function comparisonMarkup(apps) {
+    state.compareIds ??= [apps[0]?.id, apps[1]?.id];
+    const ids = state.compareIds.map((id, i) =>
+      apps.some((a) => a.id === id) ? id : apps[i]?.id,
+    );
+    const chosen = ids.map(appById).filter(Boolean);
+    return (
+      '<section class="simple-comparison"><div class="compare-pickers">' +
+      [0, 1]
+        .map(
+          (i) =>
+            '<label>' +
+            wx('Application ', 'Uygulama ') +
+            (i + 1) +
+            '<select data-compare-choice="' +
+            i +
+            '">' +
+            apps
+              .map(
+                (a) =>
+                  '<option value="' +
+                  a.id +
+                  '"' +
+                  (ids[i] === a.id ? ' selected' : '') +
+                  '>' +
+                  esc(local(a).name) +
+                  '</option>',
+              )
+              .join('') +
+            '</select></label>',
+        )
+        .join('') +
+      '</div><div class="compare-pair">' +
+      chosen
+        .map(
+          (a) =>
+            '<article>' +
+            appIcon(a) +
+            '<h3>' +
+            esc(local(a).name) +
+            '</h3><p>' +
+            esc(local(a).summary) +
+            '</p><dl><dt>' +
+            t('platforms') +
+            '</dt><dd>' +
+            a.platforms.join(' · ') +
+            '</dd><dt>' +
+            t('categories') +
+            '</dt><dd>' +
+            esc(a.categories.map(catName).join(' · ')) +
+            '</dd></dl><button class="btn primary" data-open="' +
+            a.id +
+            '">' +
+            wx('View application', 'Uygulamayı gör') +
+            ' ↗</button></article>',
+        )
+        .join('') +
+      '</div></section>'
+    );
+  }
+  function gridMarkup() {
+    const apps = results();
+    if (!apps.length)
+      return (
+        '<div class="empty"><h3>' +
+        t('noResults') +
+        '</h3><p>' +
+        t('tryAgain') +
+        '</p></div>'
+      );
+    return state.layout === 'compare' && !state.selected
+      ? comparisonMarkup(apps)
+      : apps.map(cardMarkup).join('');
+  }
+  function scrollCue() {
+    return (
+      '<div class="scroll-cue" id="scroll-cue" role="progressbar" aria-label="' +
+      esc(t('scrollPosition')) +
+      '" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="scroll-section" id="scroll-section"></span><span class="scroll-track"><span class="scroll-fill"></span><span class="scroll-dot"></span></span><span class="scroll-percent" id="scroll-percent">0%</span></div>'
+    );
+  }
+  function updateScrollCue(scroller) {
+    const cue = $('scroll-cue');
+    if (!cue) return;
+    const modal = $('mobileDetail'),
+      inner = modal.open
+        ? modal
+        : scroller?.id === 'detail-pane'
+          ? scroller
+          : null;
+    const max = inner
+      ? inner.scrollHeight - inner.clientHeight
+      : document.documentElement.scrollHeight - innerHeight;
+    const value = Math.min(
+      1,
+      Math.max(
+        0,
+        (inner ? inner.scrollTop : window.scrollY) / Math.max(1, max),
+      ),
+    );
+    let section = t('welcome');
+    if (inner && state.selected) section = local(appById(state.selected)).name;
+    else if (state.view === 'admin') section = t('adminTitle');
+    else
+      for (const [selector, key] of [
+        ['.featured-section', 'featured'],
+        ['#catalogue-title', 'catalogue'],
+        ['footer', 'pageEnd'],
+      ]) {
+        const el = document.querySelector(selector);
+        if (el && el.getBoundingClientRect().top < innerHeight * 0.45)
+          section = t(key);
+      }
+    cue.style.setProperty('--progress', value);
+    cue.setAttribute('aria-valuenow', Math.round(value * 100));
+    cue.setAttribute(
+      'aria-valuetext',
+      section + ' · ' + Math.round(value * 100) + '%',
+    );
+    $('scroll-section').textContent = section;
+    $('scroll-percent').textContent = Math.round(value * 100) + '%';
+  }
+
+  function desktopDetail() {
+    const a = appById(state.selected);
+    return a && !isMobile()
+      ? '<aside class="detail-pane desktop-detail" id="detail-pane" aria-label="' +
+          esc(t('openDetails')) +
+          '">' +
+          detailMarkup(a) +
+          '</aside>'
+      : '';
+  }
+  function updateResults() {
+    const nav = document.querySelector('.categorynav');
+    if (nav) nav.outerHTML = categoryMarkup();
+    const r = $('results');
+    if (!r) return;
+    r.dataset.layout = state.layout;
+    r.style.setProperty('--catalogue-columns', data.uiLayout.columns);
+    if ($('filters-host')) $('filters-host').innerHTML = filterMarkup();
+    const selected = appById(state.selected);
+    if (selected && !results().some((a) => a.id === selected.id))
+      state.selected = null;
+    r.className =
+      'results ' + (state.selected && !isMobile() ? 'has-detail' : '');
+    r.innerHTML =
+      '<div class="grid" id="grid">' +
+      gridMarkup() +
+      '</div>' +
+      desktopDetail();
+    $('result-count').textContent = results().length + ' ' + t('applications');
+    $('browse-shell').className =
+      'browse-shell ' + (state.selected && !isMobile() ? 'has-detail' : '');
+  }
+  function showSuggestions() {
+    const p = $('search-pop');
+    if (!p) return;
+    const apps = visibleSuggestions();
+    state.searchOpen = true;
+    p.hidden = false;
+    p.innerHTML =
+      '<p>' +
+      t(state.query ? 'matches' : 'recommended') +
+      '</p>' +
+      (apps.length
+        ? apps
+            .map(
+              (a, i) =>
+                '<button class="suggestion" role="option" id="suggestion-' +
+                i +
+                '" aria-selected="' +
+                (i === state.suggestionIndex) +
+                '" data-suggest="' +
+                a.id +
+                '">' +
+                appIcon(a) +
+                '<span><b>' +
+                esc(local(a).name) +
+                '</b><small>' +
+                esc(a.categories.map(catName).join(' · ')) +
+                '</small></span><span aria-hidden="true">↗</span></button>',
+            )
+            .join('')
+        : '<p>' + t('noResults') + '</p>');
+    $('search').setAttribute('aria-expanded', 'true');
+    if (state.suggestionIndex >= 0)
+      $('search').setAttribute(
+        'aria-activedescendant',
+        'suggestion-' + state.suggestionIndex,
+      );
+    else $('search').removeAttribute('aria-activedescendant');
+  }
+  function hideSuggestions() {
+    state.searchOpen = false;
+    state.suggestionIndex = -1;
+    if ($('search-pop')) $('search-pop').hidden = true;
+    if ($('search')) {
+      $('search').setAttribute('aria-expanded', 'false');
+      $('search').removeAttribute('aria-activedescendant');
+    }
+  }
+  function render() {
+    if (state.view === 'admin' && !isAdmin()) state.view = 'store';
+    if (
+      state.label !== 'all' &&
+      !appList().some((a) => (a.labels || []).includes(state.label))
+    )
+      state.label = 'all';
+    if (
+      state.category !== 'all' &&
+      !appList().some((a) => a.categories.includes(state.category))
+    )
+      state.category = 'all';
+    document.title = 'Arçelik · ' + t('store');
+    document.documentElement.lang = state.lang;
+    document.documentElement.dataset.theme = state.theme;
+    $('app').innerHTML =
+      header() +
+      (state.view === 'store'
+        ? storeMarkup()
+        : state.view === 'web'
+          ? webMarkup()
+          : adminMarkup()) +
+      (state.view !== 'admin' ? favoritesMarkup() : '') +
+      scrollCue();
+    const r = $('results');
+    if (r) r.style.setProperty('--catalogue-columns', data.uiLayout.columns);
+    renderWebDirectory();
+    updateScrollCue();
+  }
+  function selectApp(id) {
+    const a = appById(id);
+    if (!a?.active || a.archived) return;
+    recordActivity('activityView', local(a).name);
+    lastFocus = document.activeElement;
+    const previousTab = state.tab;
+    state.view = 'store';
+    state.tab = a.tab;
+    state.category =
+      previousTab === a.tab &&
+      (state.category === 'all' || a.categories.includes(state.category))
+        ? state.category
+        : 'all';
+    state.query = '';
+    state.platform =
+      state.platform === 'all' || a.platforms.includes(state.platform)
+        ? state.platform
+        : 'all';
+    state.label =
+      state.label === 'all' || (a.labels || []).includes(state.label)
+        ? state.label
+        : 'all';
+    state.expanded = null;
+    if (!results().some((a) => a.id === id))
+      state.multi = { category: [], platform: [], label: [] };
+    state.selected = id;
+    state.account = false;
+    hideSuggestions();
+    render();
+    previousScroll = window.scrollY;
+    if (isMobile()) showMobileDetail(a);
+  }
+  function showMobileDetail(a) {
+    const d = $('mobileDetail');
+    d.innerHTML = detailMarkup(a, true);
+    if (!d.open) d.showModal();
+    document.body.style.overflow = 'hidden';
+    d.querySelector('[data-close-detail]').focus();
+  }
+  function closeDetail() {
+    state.selected = null;
+    if ($('mobileDetail').open) {
+      closingMobile = true;
+      $('mobileDetail').close();
+      closingMobile = false;
+    }
+    document.body.style.overflow = '';
+    render();
+    const focus = lastFocus?.isConnected
+      ? lastFocus
+      : document.querySelector('[data-open]');
+    focus?.focus({ preventScroll: true });
+  }
+  function goHome() {
+    state.mobileMenu = false;
+    state.multi = { category: [], platform: [], label: [] };
+    state.view = 'store';
+    state.selected = null;
+    state.category = 'all';
+    state.platform = 'all';
+    state.label = 'all';
+    state.sort = data.filters.defaultSort;
+    state.query = '';
+    state.account = false;
+    render();
+    window.scrollTo({
+      top: 0,
+      behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'instant'
+        : 'smooth',
+    });
+  }
+
+  state.dashboardRange = '30';
+
+  onDocument('change', (e) => {
+    if (!e.target.matches('[data-mobile-admin-view]')) return;
+    state.adminTab = e.target.value;
+    render();
+  });
+  function adminMarkup() {
+    if (!isAdmin()) {
+      state.view = 'store';
+      return storeMarkup();
+    }
+    const groups = [
+      [
+        'overview',
+        wx('Overview & Activity', 'Genel bakış ve kayıtlar'),
+        [
+          ['dashboard', 'dashboard'],
+          ['activity', 'activity'],
+          ['audit', 'audit'],
+        ],
+      ],
+      [
+        'catalogue',
+        wx('Catalogue', 'Katalog'),
+        [
+          ['apps', 'applicationsTitle'],
+          ['webManage', 'webManage'],
+        ],
+      ],
+      [
+        'discovery',
+        wx(
+          'Categories, Filters & Featured Apps',
+          'Kategoriler, Filtreler ve Öne Çıkan Uygulamalar',
+        ),
+        [
+          ['categories', 'categoryAssignments'],
+          ['filters', 'catalogueFilters'],
+          ['search', 'searchSetup'],
+        ],
+      ],
+      [
+        'appearance',
+        wx('Appearance & Language', 'Görünüm ve dil'),
+        [
+          ['logo', 'branding'],
+          ['languages', 'translations'],
+        ],
+      ],
+      [
+        'feedback',
+        wx('Feedback', 'Geri bildirimler'),
+        [
+          ['feedback', 'feedbackInbox'],
+          ['comments', 'comments'],
+        ],
+      ],
+      [
+        'access',
+        bridge.bootstrap.environment === 'Test'
+          ? wx('Access & Test Accounts', 'Erişim ve Test Hesapları')
+          : wx('Access management', 'Erişim yönetimi'),
+        [
+          ['admins', 'admins'],
+          ...(bridge.bootstrap.environment === 'Test'
+            ? [['testProfiles', 'testProfiles']]
+            : []),
+        ],
+      ],
+    ];
+    const mobile = [
+      ['apps', 'applicationsTitle'],
+      ['webManage', 'webManage'],
+      ...(bridge.bootstrap.environment === 'Test'
+        ? [['testProfiles', 'testProfiles']]
+        : []),
+      ['languages', 'translations'],
+      ['feedback', 'feedbackInbox'],
+      ['comments', 'comments'],
+    ];
+    if (innerWidth <= 680 && !mobile.some(([id]) => id === state.adminTab))
+      state.adminTab = 'apps';
+    const group =
+      groups.find((g) => g[2].some(([id]) => id === state.adminTab)) ||
+      groups[0];
+    return (
+      '<main class="main page-width"><div class="admin-heading"><h1>' +
+      t('adminTitle') +
+      '</h1><button class="btn" data-home>← ' +
+      t('back') +
+      '</button></div><div class="admin-shell"><label class="mobile-admin-navigation">' +
+      wx('Manage', 'Yönet') +
+      '<select data-mobile-admin-view>' +
+      mobile
+        .map(
+          ([id, key]) =>
+            '<option value="' +
+            id +
+            '"' +
+            (state.adminTab === id ? ' selected' : '') +
+            '>' +
+            t(key) +
+            '</option>',
+        )
+        .join('') +
+      '</select></label><nav class="admin-nav">' +
+      groups
+        .map(
+          (g) =>
+            '<button data-admin-group="' +
+            g[0] +
+            '" class="' +
+            (g[0] === group[0] ? 'active' : '') +
+            '">' +
+            g[1] +
+            '</button>',
+        )
+        .join('') +
+      '</nav><section class="admin-panel"><div class="admin-subnav">' +
+      group[2]
+        .map(
+          ([id, key]) =>
+            '<button data-admin-tab="' +
+            id +
+            '" aria-pressed="' +
+            (state.adminTab === id) +
+            '">' +
+            t(key) +
+            '</button>',
+        )
+        .join('') +
+      '</div>' +
+      adminPanel() +
+      '</section></div></main>'
+    );
+  }
+
+  function adminDateSort(key) {
+    return (
+      '<label class="admin-date-sort">' +
+      wx('Sort by date', 'Tarihe göre sırala') +
+      '<select data-admin-date-sort="' +
+      key +
+      '"><option value="newest">' +
+      wx('Newest first', 'En yeni önce') +
+      '</option><option value="oldest"' +
+      (state[key] === 'oldest' ? ' selected' : '') +
+      '>' +
+      wx('Oldest first', 'En eski önce') +
+      '</option></select></label>'
+    );
+  }
+  function sortAdminDates(rows, key, date) {
+    const direction = state[key] === 'oldest' ? 1 : -1;
+    return [...rows].sort(
+      (a, b) =>
+        direction * ((Date.parse(date(a)) || 0) - (Date.parse(date(b)) || 0)),
+    );
+  }
+  function previewFeedbackPanel() {
+    const rows = sortAdminDates(
+      data.feedback || [],
+      'feedbackDateOrder',
+      (r) => r.time,
+    );
+    return (
+      '<div class="section-heading admin-sort-heading"><h2>' +
+      t('feedbackInbox') +
+      '</h2>' +
+      adminDateSort('feedbackDateOrder') +
+      '</div>' +
+      (rows.length
+        ? rows
+            .map(
+              (r) =>
+                '<article class="comment-row"><b>' +
+                esc(r.topic) +
+                '</b><p>' +
+                esc(r.message) +
+                '</p><small>' +
+                esc(r.userId) +
+                ' · ' +
+                esc(r.time) +
+                '</small></article>',
+            )
+            .join('')
+        : '<p>' + wx('No feedback yet.', 'Henüz geri bildirim yok.') + '</p>')
+    );
+  }
+  function adminCommentsPanel() {
+    const rows = data.apps.flatMap((app) =>
+      app.comments.map((comment) => ({ app, comment })),
+    );
+    return (
+      '<div class="section-heading admin-sort-heading"><h2>' +
+      t('comments') +
+      '</h2>' +
+      adminDateSort('commentsDateOrder') +
+      '</div><p>' +
+      t('commentsHelp') +
+      '</p>' +
+      sortAdminDates(rows, 'commentsDateOrder', (r) => r.comment.time)
+        .map(
+          ({ app, comment }) =>
+            '<section class="admin-comments"><h3>' +
+            esc(local(app).name) +
+            '</h3>' +
+            commentRow(app, comment) +
+            '</section>',
+        )
+        .join('')
+    );
+  }
+  function handleAdminDateSort(e) {
+    const key = e.target.dataset.adminDateSort;
+    if (!key) return;
+    state[key] = e.target.value;
+    render();
+    document
+      .querySelector('[data-admin-date-sort="' + key + '"]')
+      ?.focus({ preventScroll: true });
+  }
+
+  function catalogueFilterFields() {
+    const filters = [
+      ['category', wx('Category Filter', 'Kategori Filtresi')],
+      ['platform', wx('Platform Filter', 'Platform Filtresi')],
+      ['label', wx('Label Filter', 'Etiket Filtresi')],
+      ['sort', wx('Sorting Control', 'Sıralama Seçeneği')],
+    ];
+    const options = [
+      ['default', wx('Default Order', 'Varsayılan Sıra')],
+      ['az', t('sortAZ')],
+      ['za', t('sortZA')],
+    ];
+    return (
+      '<fieldset class="fieldset catalogue-filter-group"><legend>' +
+      wx('Filters', 'Filtreler') +
+      '</legend><div class="checks">' +
+      filters
+        .map(
+          ([key, label]) =>
+            '<label class="check"><input type="checkbox" name="filter-' +
+            key +
+            '"' +
+            (data.filters[key] ? ' checked' : '') +
+            '>' +
+            label +
+            '</label>',
+        )
+        .join('') +
+      '</div></fieldset><label class="field catalogue-default-sort">' +
+      wx('Default Sorting', 'Varsayılan Sıralama') +
+      '<select name="defaultSort">' +
+      options
+        .map(
+          ([value, label]) =>
+            '<option value="' +
+            value +
+            '"' +
+            (data.filters.defaultSort === value ? ' selected' : '') +
+            '>' +
+            label +
+            '</option>',
+        )
+        .join('') +
+      '</select></label>'
+    );
+  }
+  function catalogueFiltersPanel() {
+    return (
+      '<h2>' +
+      t('catalogueFilters') +
+      '</h2><p>' +
+      wx(
+        'Checked filters are available to users in the App Catalogue. Default Sorting sets the order users see when they first open it.',
+        'İşaretli filtreler Uygulama Kataloğunda kullanıcılara görünür. Varsayılan Sıralama, katalog ilk açıldığında uygulamaların sırasını belirler.',
+      ) +
+      '</p><form id="catalogue-filters-form">' +
+      catalogueFilterFields() +
+      '<p class="form-error" role="alert" hidden></p><button type="submit" class="btn primary">' +
+      wx('Save Changes', 'Değişiklikleri Kaydet') +
+      '</button></form>'
+    );
+  }
+  function readCatalogueFilters(formData) {
+    return {
+      category: formData.has('filter-category'),
+      platform: formData.has('filter-platform'),
+      label: formData.has('filter-label'),
+      sort: formData.has('filter-sort'),
+      defaultSort: formData.get('defaultSort'),
+    };
+  }
+  function applyCatalogueFilters(filters) {
+    if (!filters.category) {
+      state.category = 'all';
+      state.multi.category = [];
+    }
+    if (!filters.platform) {
+      state.platform = 'all';
+      state.multi.platform = [];
+    }
+    if (!filters.label) {
+      state.label = 'all';
+      state.multi.label = [];
+    }
+    state.sort = filters.defaultSort;
+    state.filtersOpen = null;
+  }
+  onDocument('submit', async (e) => {
+    const form = e.target;
+    if (form.id !== 'catalogue-filters-form') return;
+    e.preventDefault();
+    const submit = form.querySelector('[type=submit]');
+    if (!isAdmin() || submit.disabled) return;
+    const next = structuredClone(data);
+    next.filters = readCatalogueFilters(new FormData(form));
+    const error = form.querySelector('.form-error');
+    error.hidden = true;
+    submit.disabled = true;
+    try {
+      await persist(next, 'filterChanged', 'filters');
+      applyCatalogueFilters(next.filters);
+    } catch (cause) {
+      error.textContent = cause.message;
+      error.hidden = false;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+  function adminPanel() {
+    switch (state.adminTab) {
+      case 'dashboard':
+        return dashboardPanel();
+      case 'webManage':
+        return webManagePanel();
+      case 'testProfiles':
+        return testProfilesPanel();
+      case 'apps':
+        return applicationsPanel();
+      case 'categories':
+        return categoriesPanel();
+      case 'filters':
+        return catalogueFiltersPanel();
+      case 'search':
+        return (
+          '<div class="section-heading"><h2>' +
+          t('searchSetup') +
+          '</h2><button class="btn primary" data-edit="search">' +
+          wx('Edit Featured Apps', 'Öne Çıkan Uygulamaları Düzenle') +
+          '</button></div><p>' +
+          wx(
+            'Set the search box hint and choose up to four apps to suggest.',
+            'Arama kutusunun ipucunu yaz ve önerilecek en fazla dört uygulama seç.',
+          ) +
+          '</p><h3>' +
+          wx('Suggested Apps', 'Önerilen Uygulamalar') +
+          '</h3>' +
+          data.search.ids
+            .map(appById)
+            .filter(Boolean)
+            .map(
+              (a) =>
+                '<div class="admin-row">' +
+                appIcon(a) +
+                '<strong>' +
+                esc(local(a).name) +
+                '</strong></div>',
+            )
+            .join('')
+        );
+      case 'logo':
+        return (
+          '<h2>' +
+          t('branding') +
+          '</h2><p>' +
+          t('brandHelp') +
+          '</p><div style="margin:20px 0">' +
+          (data.logo
+            ? '<img class="upload-preview" src="' +
+              esc(filePath(data.logo)) +
+              '" alt="Arçelik">'
+            : '<span class="brand-wordmark" role="img" aria-label="Arçelik"></span>') +
+          '</div><button class="btn primary" data-edit="logo">' +
+          t('editLogo') +
+          '</button>'
+        );
+      case 'languages':
+        return translationsPanel();
+      case 'comments':
+        return adminCommentsPanel();
+      case 'admins':
+        return adminsPanel();
+      case 'audit':
+        return auditPanel();
+      case 'feedback':
+        return previewFeedbackPanel();
+      case 'activity':
+        return activityPanel();
+      default:
+        return '';
+    }
+  }
+  function textField(name, label, value, textarea = false, required = true) {
+    const limit =
+      name === 'description'
+        ? 10000
+        : name === 'summary'
+          ? 500
+          : name === 'name'
+            ? ['category', 'newcategory'].includes(editorContext?.kind)
+              ? 50
+              : 80
+            : name === 'version'
+              ? 64
+              : name === 'symbol'
+                ? 3
+                : name === 'employeeId'
+                  ? 128
+                  : 2000;
+    return (
+      '<label class="field">' +
+      esc(t(label)) +
+      (textarea
+        ? '<textarea name="' +
+          name +
+          '" maxlength="' +
+          limit +
+          '"' +
+          (required ? ' required' : '') +
+          '>' +
+          esc(value) +
+          '</textarea>'
+        : '<input name="' +
+          name +
+          '" value="' +
+          esc(value) +
+          '" maxlength="' +
+          limit +
+          '"' +
+          (required ? ' required' : '') +
+          '>') +
+      '</label>'
+    );
+  }
+
+  function warning() {
+    return (
+      '<div class="warning"><p>' +
+      t('warning') +
+      '</p><small>' +
+      t('sharedScope') +
+      '</small><label><input type="checkbox" name="acknowledge" required><span>' +
+      t('acknowledge') +
+      '</span></label></div>'
+    );
+  }
+
+  function audienceEditor(a) {
+    const v = a.audience || {},
+      method = v.mailGroups?.length
+        ? 'mailGroups'
+        : v.companyCodes?.length
+          ? 'companyCodes'
+          : v.countries?.length
+            ? 'countries'
+            : 'all';
+    return (
+      '<details class="editor-section audience-editor"><summary>' +
+      wx('Audience', 'Hedef kitle') +
+      '</summary><input type="hidden" name="audienceScope" value="' +
+      (method === 'all' ? 'all' : 'selected') +
+      '"><label class="field">' +
+      wx('Define by', 'Tanımlama şekli') +
+      '<select name="audienceMethod">' +
+      [
+        ['all', 'Everyone', 'Herkes'],
+        ['mailGroups', 'Mail group', 'Mail grubu'],
+        ['companyCodes', 'Company code', 'Şirket kodu'],
+        ['countries', 'Country code', 'Ülke kodu'],
+      ]
+        .map(
+          ([key, en, tr]) =>
+            '<option value="' +
+            key +
+            '"' +
+            (key === method ? ' selected' : '') +
+            '>' +
+            wx(en, tr) +
+            '</option>',
+        )
+        .join('') +
+      '</select></label>' +
+      [
+        ['mailGroups', 'audienceMailGroups', 'Mail groups', 'Mail grupları'],
+        [
+          'companyCodes',
+          'audienceCompanies',
+          'Company codes',
+          'Şirket kodları',
+        ],
+        ['countries', 'audienceCountries', 'Country codes', 'Ülke kodları'],
+      ]
+        .map(
+          ([key, name, en, tr]) =>
+            '<label class="field audience-value" data-audience-value="' +
+            key +
+            '"' +
+            (key === method ? '' : ' hidden') +
+            '>' +
+            wx(en, tr) +
+            '<input name="' +
+            name +
+            '" value="' +
+            esc((v[key] || []).join(', ')) +
+            '" placeholder="' +
+            wx('Separate values with commas', 'Virgülle ayır') +
+            '"></label>',
+        )
+        .join('') +
+      '</details>'
+    );
+  }
+
+  function multiChoice(name, title, options, selected) {
+    return (
+      '<details class="compact-multi"><summary>' +
+      title +
+      '<small data-choice-count="' +
+      name +
+      '">' +
+      selected.length +
+      '</small></summary><div>' +
+      options
+        .map(
+          ([id, label]) =>
+            '<label><input type="checkbox" name="' +
+            name +
+            '" value="' +
+            esc(id) +
+            '"' +
+            (selected.includes(id) ? ' checked' : '') +
+            '>' +
+            esc(label) +
+            '</label>',
+        )
+        .join('') +
+      '</div></details>'
+    );
+  }
+  function compactAppEditor(a) {
+    editorContext.originalApp = structuredClone(a);
+    editorContext.uploads = structuredClone(a.attachments || []);
+    editorContext.removedFiles = [];
+    editorContext.resources = { link: {}, document: {}, image: {} };
+    return (
+      '<details class="editor-section" open><summary>' +
+      wx('Basic information', 'Temel bilgiler') +
+      '</summary><div class="editor-basics">' +
+      textField('name', 'name', content(a).name) +
+      '<label class="field">' +
+      t('description') +
+      '<textarea name="description" rows="3" maxlength="10000" required>' +
+      esc(content(a).description || '') +
+      '</textarea></label></div><div class="editor-classification">' +
+      multiChoice(
+        'categories',
+        t('categories'),
+        data.categories.map((c) => [c.id, c[state.lang] || c.en || c.tr || '']),
+        a.categories,
+      ) +
+      multiChoice(
+        'platforms',
+        t('platforms'),
+        ['Web', 'iOS', 'Android', 'Windows'].map((p) => [p, p]),
+        a.platforms,
+      ) +
+      multiChoice(
+        'labels',
+        t('labels'),
+        LABELS.map((l) => [l.id, l[state.lang] || l.en || l.tr || '']),
+        a.labels || [],
+      ) +
+      '</div><div class="editor-publishing"><label class="check"><input type="checkbox" name="active"' +
+      (a.active ? ' checked' : '') +
+      '>' +
+      t('appActive') +
+      '</label><label class="check"><input type="checkbox" name="homepageFeatured"' +
+      (a.featured ? ' checked' : '') +
+      '>' +
+      wx('Show in recently added', 'Yeni eklenenlerde göster') +
+      '</label></div></details><details class="editor-section"><summary>' +
+      t('downloadLinks') +
+      '</summary><div id="link-rows">' +
+      a.links.map((l) => resourceRow('link', l)).join('') +
+      '</div><button type="button" class="btn" data-asset-add="link">+ ' +
+      t('addLink') +
+      '</button><h3 class="editor-files-heading">' +
+      wx('Images & documents', 'Görseller ve dokümanlar') +
+      '</h3><label class="upload-zone">' +
+      wx('Choose files', 'Dosyaları seç') +
+      '<input type="file" data-unified-files multiple accept="image/png,image/jpeg,image/webp,.pdf,.doc,.docx,.xls,.xlsx"></label><input type="hidden" name="attachmentState" value=""><div id="unified-file-list"></div><p id="unified-file-status" role="status"></p></details>' +
+      audienceEditor(a)
+    );
+  }
+  function renderUnifiedFiles() {
+    const marker = $('editor-form')?.elements.namedItem('attachmentState');
+    if (marker)
+      marker.value = JSON.stringify({
+        ids: editorContext.uploads.map((f) => f.id),
+        removed: editorContext.removedFiles,
+        cover: editorContext.selectedCover || '',
+      });
+    const host = $('unified-file-list');
+    if (!host) return;
+    const original = editorContext.originalApp;
+    const files = [
+      ...(original.image
+        ? [
+            {
+              id: 'current-cover',
+              name: t('imageCurrent'),
+              url: original.image,
+              type: 'image/',
+            },
+          ]
+        : []),
+      ...(original.documents || []).map((d) => ({
+        id: d.id,
+        name: d.title?.[state.lang] || d.title || t('documents'),
+        url: d.url,
+        type: 'document',
+      })),
+      ...(original.images || []).map((d, i) => ({
+        id: d.id || 'old-image-' + i,
+        name: d.caption?.[state.lang] || t('imageLabel'),
+        url: d.url || d,
+        type: 'image/',
+      })),
+      ...editorContext.uploads,
+    ];
+    const unique = [
+      ...new Map(
+        files
+          .filter((f) => !editorContext.removedFiles.includes(f.id))
+          .map((f) => [f.id, f]),
+      ).values(),
+    ];
+    host.innerHTML = unique
+      .map(
+        (f) =>
+          '<div class="unified-file"><span>' +
+          esc(f.name) +
+          '</span>' +
+          (f.type.startsWith('image/')
+            ? '<button type="button" class="file-cover" data-file-cover="' +
+              f.id +
+              '">' +
+              (editorContext.selectedCover === f.url
+                ? wx('Selected', 'Seçildi')
+                : wx('Use on card', 'Kartta kullan')) +
+              '</button>'
+            : '') +
+          '<button type="button" class="text-remove" data-file-remove="' +
+          f.id +
+          '" aria-label="' +
+          t('remove') +
+          '">×</button></div>',
+      )
+      .join('');
+  }
+  onDocument(
+    'change',
+    async (e) => {
+      if (e.target.name === 'audienceMethod') {
+        const form = e.target.closest('form');
+        form.elements.audienceScope.value =
+          e.target.value === 'all' ? 'all' : 'selected';
+        form
+          .querySelectorAll('[data-audience-value]')
+          .forEach(
+            (el) => (el.hidden = el.dataset.audienceValue !== e.target.value),
+          );
+      }
+      if (['categories', 'platforms', 'labels'].includes(e.target.name)) {
+        const c = document.querySelector(
+          '[data-choice-count="' + e.target.name + '"]',
+        );
+        if (c)
+          c.textContent = e.target
+            .closest('form')
+            .querySelectorAll('[name="' + e.target.name + '"]:checked').length;
+      }
+      if (!e.target.matches('[data-unified-files]')) return;
+      e.stopImmediatePropagation();
+      const status = $('unified-file-status'),
+        submit = $('editor-form').querySelector('[type=submit]');
+      editorContext.uploading = true;
+      submit.disabled = true;
+      e.target.disabled = true;
+      try {
+        for (const file of e.target.files) {
+          if (file.size > 10 * 1024 * 1024)
+            throw Error(
+              wx(
+                'Choose files up to 10 MB each.',
+                'Her dosya en fazla 10 MB olabilir.',
+              ),
+            );
+          status.textContent = wx('Uploading…', 'Yükleniyor…');
+          const value = await bridge.upload(file, 'files');
+          editorContext.uploads.push(value);
+        }
+        renderUnifiedFiles();
+        status.textContent = '';
+      } catch (error) {
+        status.textContent = error.message;
+      } finally {
+        editorContext.uploading = false;
+        submit.disabled = false;
+        e.target.disabled = false;
+        e.target.value = '';
+      }
+    },
+    true,
+  );
+  onDocument('click', async (e) => {
+    const remove = e.target.closest('[data-file-remove]'),
+      cover = e.target.closest('[data-file-cover]');
+    if (remove) {
+      const id = remove.dataset.fileRemove;
+      editorContext.removedFiles.push(id);
+      editorContext.uploads = editorContext.uploads.filter((f) => f.id !== id);
+      renderUnifiedFiles();
+    }
+    if (cover) {
+      const id = cover.dataset.fileCover;
+      const file =
+        (id === 'current-cover'
+          ? { url: editorContext.originalApp.image }
+          : null) ||
+        editorContext.uploads.find((f) => f.id === id) ||
+        (editorContext.originalApp.images || []).find(
+          (f, i) => (f.id || 'old-image-' + i) === id,
+        );
+      if (file) {
+        editorContext.selectedCover = file.url;
+        renderUnifiedFiles();
+        cover.textContent = wx('Selected', 'Seçildi');
+      }
+    }
+  });
+  function openEditor(kind, id) {
+    if (!isAdmin()) return;
+    if (editorContext?.saving || editorContext?.uploading) {
+      notify(t('saving'));
+      return;
+    }
+    hideSuggestions();
+    state.account = false;
+    editorContext = { kind, id, language: state.lang };
+    let title = '',
+      body = '';
+    if (kind === 'quick') {
+      title = t('quickTitle');
+      body =
+        '<div class="quick-mobile-grid">' +
+        [
+          ['welcome', 'editWelcome'],
+          ['search', 'editSearch'],
+          ['logo', 'editLogo'],
+          ['categories', 'editCategory'],
+        ]
+          .map(
+            ([k, l]) =>
+              '<button type="button" class="btn" data-edit="' +
+              k +
+              '">' +
+              svg('edit') +
+              t(l) +
+              '</button>',
+          )
+          .join('') +
+        (state.selected
+          ? '<button type="button" class="btn" data-edit="app" data-id="' +
+            state.selected +
+            '">' +
+            svg('edit') +
+            t('editApp') +
+            '</button>'
+          : '') +
+        '<button type="button" class="btn" data-manage>' +
+        svg('gear') +
+        t('manage') +
+        '</button></div>';
+    } else if (kind === 'categories') {
+      title = t('categories');
+      body =
+        data.categories
+          .map(
+            (c) =>
+              '<div class="admin-row"><span class="grow">' +
+              esc(c[state.lang] || c.en || c.tr || '') +
+              '</span><button type="button" class="btn" data-edit="category" data-id="' +
+              c.id +
+              '">' +
+              t('edit') +
+              '</button></div>',
+          )
+          .join('') +
+        '<button type="button" class="btn" data-edit="newcategory">+ ' +
+        t('newCategory') +
+        '</button>';
+    } else if (kind === 'testProfile') {
+      const p = testProfileRecords().find((profile) => profile.id === id) || {};
+      const builtIn = builtInTestPeople().some((profile) => profile.id === id);
+      const input = (
+        name,
+        label,
+        value = '',
+        limit = 128,
+        required = false,
+        extra = '',
+      ) =>
+        '<label class="field">' +
+        label +
+        '<input type="text" name="' +
+        name +
+        '" value="' +
+        esc(value || '') +
+        '" maxlength="' +
+        limit +
+        '"' +
+        (required ? ' required' : '') +
+        extra +
+        '></label>';
+      const employeeTypes = [
+        ['WC', 'WC'],
+        ['BC', 'BC'],
+        ['Manager', wx('Manager', 'Yönetici')],
+        ['Contractor', wx('Contractor', 'Yüklenici')],
+        ['Other', wx('Other', 'Diğer')],
+      ];
+      const selectedType =
+        employeeTypes.find(([, label]) => p.employeeType === label)?.[0] ||
+        p.employeeType;
+      if (
+        p.employeeType &&
+        !employeeTypes.some(([value]) => value === p.employeeType)
+      )
+        employeeTypes.push([p.employeeType, p.employeeType]);
+      title = id
+        ? wx('Edit Test Profile', 'Test Profilini Düzenle')
+        : wx('Create A Test Account', 'Test Hesabı Oluştur');
+      body =
+        input(
+          'employeeId',
+          wx('Employee ID', 'Sicil Numarası'),
+          p.employeeId,
+          128,
+          true,
+          ' autocomplete="off"',
+        ) +
+        input(
+          'companyCode',
+          wx('Company Code', 'Şirket Kodu'),
+          p.companyCode,
+          64,
+        ) +
+        '<label class="field">' +
+        wx('Employee Type', 'Çalışan Türü') +
+        '<select name="employeeType"><option value="">' +
+        wx('Select Employee Type', 'Çalışan Türü Seç') +
+        '</option>' +
+        employeeTypes
+          .map(
+            ([value, label]) =>
+              '<option value="' +
+              esc(value) +
+              '"' +
+              (value === selectedType ? ' selected' : '') +
+              '>' +
+              esc(label) +
+              '</option>',
+          )
+          .join('') +
+        '</select></label>';
+      if (!builtIn)
+        body +=
+          '<label class="field">' +
+          wx('Role', 'Rol') +
+          '<select name="testRole"><option value="employee">' +
+          t('employee') +
+          '</option><option value="admin"' +
+          (p.testRole === 'admin' ? ' selected' : '') +
+          '>' +
+          t('admin') +
+          '</option></select></label>';
+    } else if (kind === 'pageLayout') {
+      title = wx('Page layout', 'Sayfa düzeni');
+      body =
+        '<p class="web-note">' +
+        wx(
+          'Changes apply to the shared page after saving. Arrow buttons change the order.',
+          'Kaydettikten sonra sayfa düzeni herkes için değişir. Oklarla sıralamayı değiştir.',
+        ) +
+        '</p>' +
+        (id === 'web'
+          ? '<h3>' +
+            t('internalLabel') +
+            '</h3>' +
+            layoutRows(
+              [
+                { ...appById('connecta'), _app: true },
+                ...data.webEntries.filter((r) => r.scope === 'internal'),
+              ],
+              'webOrder',
+              false,
+            )
+          : '<label class="field">' +
+            wx('Desktop columns', 'Masaüstünde sütun') +
+            '<select name="columns"><option value="2"' +
+            (data.uiLayout.columns === 2 ? ' selected' : '') +
+            '>2</option><option value="3"' +
+            (data.uiLayout.columns === 3 ? ' selected' : '') +
+            '>3</option></select></label><h3>' +
+            t('catalogue') +
+            '</h3>' +
+            layoutRows(data.apps, 'appOrder') +
+            '<h3>' +
+            wx('Recently added', 'Yeni eklenenler') +
+            '</h3>' +
+            layoutRows(
+              data.apps.filter((a) => a.featured),
+              'featuredOrder',
+            ));
+    } else if (kind === 'webEntry' || kind === 'newWebEntry') {
+      const r = webEntry(id) || {
+        en: { name: '', description: '' },
+        tr: { name: '', description: '' },
+        url: '',
+        symbol: '',
+        scope: state.webScope || 'internal',
+        background: '',
+      };
+      title = t('edit');
+      body =
+        '<fieldset class="web-editor-step" data-web-step="0"><legend>' +
+        wx('Where does it belong?', 'Nereye ait?') +
+        '</legend><label class="field">' +
+        wx('Type', 'Tür') +
+        '<select name="webScope">' +
+        [
+          ['internal', 'internalLabel'],
+          ['external', 'externalLabel'],
+          ['portal', 'portalTitle'],
+        ]
+          .map(
+            ([id, key]) =>
+              '<option value="' +
+              id +
+              '"' +
+              ((r.id === 'behome'
+                ? 'portal'
+                : r.id === 'connecta'
+                  ? 'internal'
+                  : r.scope) === id
+                ? ' selected'
+                : '') +
+              '>' +
+              t(key) +
+              '</option>',
+          )
+          .join('') +
+        '</select></label></fieldset><fieldset class="web-editor-step" data-web-step="1"><legend>' +
+        wx('Card content', 'Kart içeriği') +
+        '</legend>' +
+        textField('name', 'name', content(r).name) +
+        textField('description', 'description', content(r).description, true) +
+        textField('symbol', 'iconSymbol', r.symbol, false, false) +
+        '</fieldset><fieldset class="web-editor-step" data-web-step="2"><legend>' +
+        wx('Destination & image', 'Adres ve görsel') +
+        '</legend>' +
+        textField('url', 'url', r.url) +
+        '<label class="field">' +
+        wx(
+          'Background photo URL (portals)',
+          'Arka plan fotoğraf adresi (portallar)',
+        ) +
+        '<input name="background" value="' +
+        esc(r.background || '') +
+        '" placeholder="https://…"></label><label class="field">' +
+        t('imageLabel') +
+        '<input type="file" name="image" accept="image/png,image/jpeg,image/webp"><small>' +
+        t('uploadHint') +
+        '</small></label></fieldset>';
+    } else if (kind === 'welcome') {
+      title = t('editWelcome');
+      const c = content(data.copy);
+      body =
+        '<p class="muted editor-note">' +
+        t('nameToken') +
+        '</p>' +
+        textField('greeting', 'greetingLabel', c.greeting) +
+        textField('title', 'headline', c.title) +
+        textField('accent', 'highlight', c.accent) +
+        textField('subtitle', 'supporting', c.subtitle, true);
+    } else if (kind === 'search') {
+      title = t('searchSetup');
+      body =
+        '<p class="muted editor-note">' +
+        t('featuredHelp') +
+        '</p>' +
+        textField('prompt', 'searchPrompt', data.search[state.lang]) +
+        '<fieldset class="fieldset"><legend>' +
+        t('featuredApps') +
+        '</legend><div class="checks">' +
+        data.apps
+          .filter((a) => a.active)
+          .map(
+            (a) =>
+              '<label class="check"><input type="checkbox" name="featured" value="' +
+              a.id +
+              '"' +
+              (data.search.ids.includes(a.id) ? ' checked' : '') +
+              '>' +
+              esc(local(a).name) +
+              '</label>',
+          )
+          .join('') +
+        '</div></fieldset><p class="muted editor-note">' +
+        t('featuredLimit') +
+        '</p>';
+    } else if (kind === 'filters') {
+      title = t('catalogueFilters');
+      body = catalogueFilterFields();
+    } else if (kind === 'translation') {
+      title = t('editTranslation');
+      body =
+        '<div class="mapping-key">' +
+        esc(id) +
+        '</div>' +
+        textField('value', 'translationValue', t(id));
+    } else if (kind === 'featured') {
+      title = t('editFeatured');
+      body =
+        '<p class="editor-note muted">' +
+        t('homepageFeaturedHelp') +
+        '</p><div class="checks">' +
+        data.apps
+          .map(
+            (a) =>
+              '<label class="check"><input type="checkbox" name="homepageFeatured" value="' +
+              a.id +
+              '"' +
+              (a.featured ? ' checked' : '') +
+              '>' +
+              esc(local(a).name) +
+              (a.archived ? ' · ' + t('archived') : '') +
+              '</label>',
+          )
+          .join('') +
+        '</div>';
+    } else if (kind === 'adminAssignment' || kind === 'newAdmin') {
+      const assignment = data.adminAssignments.find((a) => a.employeeId === id);
+      title = t(kind === 'newAdmin' ? 'addAdmin' : 'editAdmin');
+      body =
+        textField('employeeId', 'employeeId', assignment?.employeeId || '') +
+        '<p class="employee-match editor-note muted" id="employee-match">' +
+        employeeMatch(assignment?.employeeId || '') +
+        '</p><p class="editor-note muted">' +
+        t('roleHelp') +
+        '</p>';
+    } else if (kind === 'logo') {
+      title = t('editLogo');
+      body =
+        '<p class="muted" style="font-size:12px;margin-bottom:18px">' +
+        t('brandHelp') +
+        '</p>' +
+        (data.logo
+          ? '<img class="upload-preview" src="' +
+            esc(filePath(data.logo)) +
+            '" alt="' +
+            esc(t('currentLogo')) +
+            '">'
+          : '<span class="brand-wordmark" role="img" aria-label="Arçelik"></span>') +
+        '<label class="field">' +
+        t('currentLogo') +
+        '<input type="file" name="image" accept="image/png,image/jpeg,image/webp" required><small>' +
+        t('uploadHint') +
+        '</small></label><img class="upload-preview" id="upload-preview" hidden alt="' +
+        esc(t('currentLogo')) +
+        '">';
+    } else if (kind === 'category' || kind === 'newcategory') {
+      const c = data.categories.find((c) => c.id === id);
+      title = c
+        ? wx('Edit Category', 'Kategoriyi Düzenle')
+        : wx('Add Category', 'Kategori Ekle');
+      body =
+        textField('name', 'categoryName', c?.[state.lang] || '') +
+        (c
+          ? '<fieldset class="fieldset"><legend>' +
+            t('categoryApps') +
+            '</legend><div class="checks">' +
+            data.apps
+              .map(
+                (a) =>
+                  '<label class="check"><input type="checkbox" name="categoryApps" value="' +
+                  a.id +
+                  '"' +
+                  (a.categories.includes(c.id) ? ' checked' : '') +
+                  '>' +
+                  esc(local(a).name) +
+                  (a.archived ? ' · ' + t('archived') : '') +
+                  '</label>',
+              )
+              .join('') +
+            '</div></fieldset>'
+          : '');
+    } else if (kind === 'app' || kind === 'newapp') {
+      const a = appById(id) || {
+        id: 'draft',
+        en: { name: '', description: '' },
+        tr: { name: '', description: '' },
+        version: '1.0.0',
+        platforms: ['Web'],
+        categories: [],
+        labels: [],
+        tab: 'arcelik',
+        image: '',
+        links: [
+          {
+            id: 'draft-link',
+            platform: 'Web',
+            version: '1.0.0',
+            url: '',
+            pending: true,
+            label: {},
+          },
+        ],
+        documents: [],
+        images: [],
+        attachments: [],
+        featured: false,
+        active: true,
+        symbol: 'A',
+        color: '#d61530',
+      };
+      title = t(kind === 'newapp' ? 'addApp' : 'editApp');
+      body = compactAppEditor(a);
+    }
+    if (['webEntry', 'newWebEntry'].includes(kind))
+      body += audienceEditor(
+        appById(id) || data.webEntries.find((r) => r.id === id) || {},
+      );
+    const menu = ['quick', 'categories'].includes(kind);
+    const d = $('editDialog');
+    if (d.open) d.close();
+    d.innerHTML =
+      '<div class="dialog-head"><h2 id="editTitle">' +
+      esc(title) +
+      '</h2><button type="button" class="icon-btn" data-close-editor aria-label="' +
+      esc(t('close')) +
+      '">' +
+      svg('close') +
+      '</button></div>' +
+      (menu
+        ? '<div class="dialog-body">' + body + '</div>'
+        : '<form id="editor-form" novalidate><div class="dialog-body"><p class="form-error" id="form-error" role="alert" hidden></p>' +
+          (['category', 'newcategory', 'search'].includes(kind)
+            ? '<div class="editing-language">' +
+              esc(
+                wx('Editing', 'Düzenlenen Dil') +
+                  ' · ' +
+                  (languages().find((l) => l.code === state.lang)?.name ||
+                    state.lang),
+              ) +
+              '</div><p class="editor-note muted">' +
+              (['category', 'newcategory'].includes(kind)
+                ? categoryLanguageHelp()
+                : wx(
+                    'The search box hint follows the selected language. Suggested apps are shared across languages.',
+                    'Arama kutusunun ipucu seçili dile göre düzenlenir. Önerilen uygulamalar tüm dillerde ortaktır.',
+                  )) +
+              '</p>'
+            : ['testProfile', 'filters'].includes(kind)
+              ? ''
+              : '<div class="editing-language">' +
+                t('editingLanguage') +
+                '</div><p class="editor-note muted">' +
+                t('languageScope') +
+                '</p>') +
+          body +
+          (kind === 'welcome' ? warning() : '') +
+          '</div><div class="dialog-actions"><button type="button" class="btn" data-close-editor>' +
+          t('cancel') +
+          '</button><button class="btn primary" type="submit">' +
+          (kind === 'testProfile'
+            ? wx('Save Changes', 'Değişiklikleri Kaydet')
+            : t('save')) +
+          '</button></div></form>');
+    d.showModal();
+    fitEditorTextareas();
+    if (['app', 'newapp'].includes(kind)) {
+      const tab = d.querySelector('[name=tab]');
+      if (tab) tab.closest('.field').hidden = true;
+    }
+    if (['webEntry', 'newWebEntry'].includes(kind)) setupWebWizard();
+    if (['app', 'newapp'].includes(kind)) renderUnifiedFiles();
+    const form = $('editor-form');
+    editorInitial = form
+      ? JSON.stringify(
+          [...new FormData(form)].map(([k, v]) => [
+            k,
+            typeof v === 'string' ? v : v.name,
+          ]),
+        )
+      : '';
+  }
+  function closeEditor(force = false) {
+    if (editorContext?.saving || editorContext?.uploading) {
+      notify(t('saving'));
+      return;
+    }
+    const f = $('editor-form');
+    if (
+      !force &&
+      f &&
+      JSON.stringify(
+        [...new FormData(f)].map(([k, v]) => [
+          k,
+          typeof v === 'string' ? v : v.name,
+        ]),
+      ) !== editorInitial &&
+      !confirm(t('discard'))
+    )
+      return;
+    $('editDialog').close();
+    editorContext = null;
+  }
+  function readFile(file) {
+    if (!file || !file.size) return Promise.resolve(null);
+    if (
+      !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) ||
+      file.size > 600 * 1024
+    )
+      return Promise.reject(Error(t('uploadError')));
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(Error(t('uploadError')));
+      reader.readAsDataURL(file);
+    });
+  }
+  async function saveEditor(form) {
+    if (!isAdmin() || editorContext?.saving || editorContext?.uploading) return;
+    const fd = new FormData(form),
+      ctx = editorContext,
+      next = structuredClone(data);
+    const get = (k) => String(fd.get(k) || '').trim();
+    let key = 'changeApp';
+    ctx.saving = true;
+    form.querySelector('[type=submit]').disabled = true;
+    form
+      .closest('dialog')
+      .querySelectorAll('[data-close-editor]')
+      .forEach((b) => (b.disabled = true));
+    try {
+      if (
+        [...form.querySelectorAll('[required]')].some((el) =>
+          el.type === 'checkbox'
+            ? !el.checked
+            : el.type === 'file'
+              ? !el.files.length
+              : !el.value.trim(),
+        )
+      )
+        throw Error(t('required'));
+      if (ctx.kind === 'filters') {
+        next.filters = readCatalogueFilters(fd);
+        key = 'filterChanged';
+      } else if (ctx.kind === 'translation') {
+        if (/[<>]/.test(get('value'))) throw Error(t('plainTextOnly'));
+        (next.uiOverrides[ctx.language] ??= {})[ctx.id] = get('value');
+        key = 'translationChanged';
+      } else if (ctx.kind === 'featured') {
+        const ids = fd.getAll('homepageFeatured');
+        for (const a of next.apps) a.featured = ids.includes(a.id);
+        key = 'changeApp';
+      } else if (ctx.kind === 'adminAssignment' || ctx.kind === 'newAdmin') {
+        const employeeId = get('employeeId');
+        if (!/^[A-Za-z0-9._-]{1,128}$/.test(employeeId))
+          throw Error(t('invalidEmployee'));
+        if (
+          next.adminAssignments.some(
+            (a) => a.employeeId === employeeId && a.employeeId !== ctx.id,
+          )
+        )
+          throw Error(t('duplicateEmployee'));
+        const existing = next.adminAssignments.find(
+          (a) => a.employeeId === ctx.id,
+        );
+        if (existing?.profileId === state.person.id)
+          throw Error(t('ownAdminProtected'));
+        const assignment = {
+          employeeId,
+          profileId:
+            PEOPLE.find((p) => p.employeeId === employeeId)?.id || null,
+        };
+        if (!assignment.profileId)
+          throw Error(
+            wx(
+              'Select an employee who has signed in.',
+              'Giriş yapmış bir çalışan seç.',
+            ),
+          );
+        if (existing) Object.assign(existing, assignment);
+        else next.adminAssignments.push(assignment);
+        syncAdmins(next);
+        key = 'adminChanged';
+      } else if (ctx.kind === 'welcome') {
+        for (const k of ['greeting', 'title', 'accent', 'subtitle'])
+          (next.copy[ctx.language] ??= {})[k] = get(k);
+        key = 'changeWelcome';
+      } else if (ctx.kind === 'search') {
+        const ids = fd.getAll('featured');
+        if (ids.length > 4) throw Error(t('maxFeatured'));
+        next.search = { ...next.search, [ctx.language]: get('prompt'), ids };
+        state.rotation = 0;
+        key = 'changeSearch';
+      } else if (ctx.kind === 'logo') {
+        next.logo = await readFile(fd.get('image'));
+        if (!next.logo) throw Error(t('required'));
+        key = 'changeBrand';
+      } else if (ctx.kind === 'category' || ctx.kind === 'newcategory') {
+        const c = next.categories.find((c) => c.id === ctx.id);
+        if (c) {
+          c[ctx.language] = get('name');
+          const ids = fd.getAll('categoryApps');
+          for (const a of next.apps) {
+            const wasAssigned = a.categories.includes(c.id);
+            a.categories = a.categories.filter((id) => id !== c.id);
+            if (ids.includes(a.id)) a.categories.push(c.id);
+            if (wasAssigned && !a.categories.length)
+              throw Error(t('categoryRequired'));
+          }
+        } else
+          next.categories.push({
+            id: 'category-' + Date.now(),
+            en: get('name'),
+            [ctx.language]: get('name'),
+          });
+        key = 'changeCategory';
+      } else if (ctx.kind === 'app' || ctx.kind === 'newapp') {
+        const categories = fd.getAll('categories'),
+          platforms = fd.getAll('platforms');
+        if (!categories.length || !platforms.length) throw Error(t('required'));
+        const assets = readAssets(form, ctx.language);
+        if (!assets.links.length) throw Error(t('linksRequired'));
+        let a = next.apps.find((a) => a.id === ctx.id);
+        if (!a) {
+          a = {
+            id: 'app-' + Date.now(),
+            active: true,
+            asset: null,
+            color: '#d61530',
+            image: '',
+            en: { name: '', description: '' },
+            tr: { name: '', description: '' },
+            labels: [],
+            comments: [],
+            featuredComment: null,
+          };
+          next.apps.push(a);
+        }
+        a[ctx.language] = {
+          ...a[ctx.language],
+          name: get('name'),
+          summary: get('description').slice(0, 150),
+          description: get('description'),
+        };
+        Object.assign(a, {
+          labels: fd.getAll('labels'),
+          featuredComment: get('featuredComment') || a.featuredComment || null,
+          version: assets.links[0]?.version || a.version,
+          tab: get('tab') || a.tab || 'arcelik',
+          categories,
+          platforms,
+          active: fd.has('active'),
+          featured: fd.has('homepageFeatured'),
+          symbol: a.symbol || 'A',
+          color: a.color || '#d61530',
+          links: assets.links,
+          documents: assets.documents,
+          images: assets.images,
+          url: assets.links.find((l) => !l.pending && l.url)?.url || '',
+        });
+        a.attachments = structuredClone(editorContext.uploads);
+        if (editorContext.removedFiles.includes('current-cover')) a.image = '';
+        if (editorContext.selectedCover) a.image = editorContext.selectedCover;
+        key = 'changeApp';
+      }
+      if (ctx.kind === 'testProfile') {
+        const employeeId = get('employeeId');
+        if (
+          testProfileRecords().some(
+            (p) => p.employeeId === employeeId && p.id !== ctx.id,
+          )
+        )
+          throw Error(t('duplicateEmployee'));
+        const details = {
+          employeeId,
+          companyCode: get('companyCode'),
+          employeeType: get('employeeType'),
+        };
+        const builtIn = builtInTestPeople().some((p) => p.id === ctx.id);
+        if (builtIn) {
+          const builtInDetails = (next.builtInTestProfileDetails ??= {});
+          builtInDetails[ctx.id] = { ...builtInDetails[ctx.id], ...details };
+        } else {
+          const p = next.testProfiles.find((p) => p.id === ctx.id);
+          if (p) {
+            if (p.name === p.employeeId) {
+              p.name = employeeId;
+              p.initials = employeeId.slice(0, 2).toUpperCase();
+            }
+            Object.assign(p, details, { testRole: get('testRole') });
+          } else
+            next.testProfiles.push({
+              ...details,
+              id: 'test-' + Date.now(),
+              synthetic: true,
+              name: employeeId,
+              initials: employeeId.slice(0, 2).toUpperCase(),
+              testRole: get('testRole'),
+            });
+        }
+        key = 'testProfileChanged';
+      }
+      if (ctx.kind === 'webEntry' || ctx.kind === 'newWebEntry') {
+        let r =
+          ctx.id === 'connecta'
+            ? next.apps.find((a) => a.id === 'connecta')
+            : ctx.id === 'behome'
+              ? next.webPortal
+              : next.webEntries.find((r) => r.id === ctx.id);
+        if (!r) {
+          r = {
+            id: 'web-' + Date.now(),
+            en: { name: '', description: '' },
+            tr: { name: '', description: '' },
+            type: 'webapp',
+            group: 'Beko',
+            image: '',
+          };
+          next.webEntries.push(r);
+        }
+        if (!get('name') || !get('description')) throw Error(t('required'));
+        let u;
+        try {
+          u = new URL(get('url'));
+        } catch {
+          throw Error(
+            wx(
+              'Enter a valid HTTPS link.',
+              'Geçerli bir HTTPS bağlantısı gir.',
+            ),
+          );
+        }
+        if (u.protocol !== 'https:' || u.username || u.password)
+          throw Error(
+            wx(
+              'Use an HTTPS link without credentials.',
+              'Kimlik bilgisi içermeyen bir HTTPS bağlantısı kullan.',
+            ),
+          );
+        r[ctx.language] = {
+          name: get('name'),
+          description: get('description'),
+        };
+        r.url = u.href;
+        r.symbol = get('symbol');
+        r.scope = ctx.id === 'behome' ? 'portal' : get('webScope');
+        const bg = get('background');
+        if (
+          bg &&
+          !bg.startsWith('assets/') &&
+          !bg.startsWith('data:image/') &&
+          !/^https:\/\//i.test(bg)
+        )
+          throw Error(
+            wx('Use an HTTPS image URL.', 'HTTPS görsel adresi kullan.'),
+          );
+        r.background = bg;
+        const image = await readFile(fd.get('image'));
+        if (image) {
+          r.image = image;
+          if (r.scope === 'portal' || ctx.id === 'behome') r.background = image;
+        }
+        if (ctx.id === 'connecta') {
+          const link = r.links.find((l) => l.platform === 'Web');
+          if (link) {
+            link.url = r.url;
+            link.pending = false;
+          }
+        }
+        key = 'changeWebEntry';
+      }
+      if (ctx.kind === 'pageLayout') {
+        if (ctx.id === 'web') {
+          next.uiLayout.webOrder = [
+            ...form.querySelectorAll(
+              '[data-layout-list=webOrder] [data-order-id]',
+            ),
+          ].map((r) => r.dataset.orderId);
+          for (const row of form.querySelectorAll(
+            '[data-layout-list=webOrder] [data-order-id]',
+          )) {
+            const size = row.querySelector('select');
+            if (size) next.uiLayout.webSizes[row.dataset.orderId] = size.value;
+          }
+        } else {
+          next.uiLayout.columns = Number(get('columns')) === 2 ? 2 : 3;
+          for (const list of ['appOrder', 'featuredOrder'])
+            next.uiLayout[list] = [
+              ...form.querySelectorAll(
+                '[data-layout-list="' + list + '"] [data-order-id]',
+              ),
+            ].map((r) => r.dataset.orderId);
+        }
+        key = 'pageLayoutChanged';
+      }
+      if (['app', 'newapp', 'webEntry', 'newWebEntry'].includes(ctx.kind)) {
+        const target =
+          next.apps.find((a) => a.id === ctx.id) ||
+          next.webEntries.find((a) => a.id === ctx.id) ||
+          (ctx.kind === 'newapp' ? next.apps.at(-1) : next.webEntries.at(-1));
+        const scope = get('audienceScope'),
+          method = get('audienceMethod'),
+          parse = (name) =>
+            get(name)
+              .split(',')
+              .map((v) => v.trim())
+              .filter(Boolean),
+          companyCodes =
+            method === 'companyCodes' ? parse('audienceCompanies') : [],
+          countries = method === 'countries' ? parse('audienceCountries') : [],
+          mailGroups =
+            method === 'mailGroups' ? parse('audienceMailGroups') : [];
+        if (
+          scope === 'selected' &&
+          !companyCodes.length &&
+          !countries.length &&
+          !mailGroups.length
+        )
+          throw Error(
+            wx('Choose a company or country.', 'Şirket veya ülke seç.'),
+          );
+        if (target) {
+          target.audience = { scope, companyCodes, countries, mailGroups };
+          target.targetLocation = '';
+        }
+      }
+      await persist(next, key);
+      if (ctx.kind === 'filters') applyCatalogueFilters(next.filters);
+      ctx.saving = false;
+      closeEditor(true);
+      render();
+      if ($('mobileDetail').open && state.selected)
+        $('mobileDetail').innerHTML = detailMarkup(
+          appById(state.selected),
+          true,
+        );
+    } catch (error) {
+      if (ctx) ctx.saving = false;
+      form
+        ?.closest('dialog')
+        ?.querySelectorAll('[data-close-editor]')
+        .forEach((b) => (b.disabled = false));
+      if (form?.querySelector('[type=submit]'))
+        form.querySelector('[type=submit]').disabled = false;
+      $('form-error').textContent = error.message;
+      $('form-error').hidden = false;
+      $('form-error').scrollIntoView({ block: 'nearest' });
+    }
+  }
+  onDocument('click', async (e) => {
+    const target = e.target.closest('button');
+    if (!target) {
+      if (!e.target.closest('.search-wrap')) hideSuggestions();
+      return;
+    }
+    if (target.matches('[data-layout-move]')) {
+      const row = target.closest('[data-order-id]'),
+        next =
+          target.dataset.layoutMove === 'up'
+            ? row.previousElementSibling
+            : row.nextElementSibling;
+      if (next) {
+        if (target.dataset.layoutMove === 'up') next.before(row);
+        else next.after(row);
+        target.focus();
+      }
+      return;
+    }
+    if (target.matches('[data-expand-web-topic]')) {
+      const key = target.dataset.expandWebTopic;
+      state.expandedWebTopics = state.expandedWebTopics.includes(key)
+        ? state.expandedWebTopics.filter((v) => v !== key)
+        : [...state.expandedWebTopics, key];
+      renderWebDirectory();
+      document
+        .querySelector('[data-expand-web-topic="' + key + '"]')
+        ?.focus({ preventScroll: true });
+      return;
+    }
+    if (target.matches('[data-admin-group]')) {
+      const tabs = {
+        overview: 'dashboard',
+        catalogue: 'apps',
+        discovery: 'categories',
+        appearance: 'logo',
+        feedback: 'feedback',
+        access: 'admins',
+      };
+      state.adminTab = tabs[target.dataset.adminGroup];
+      render();
+      return;
+    }
+    if (target.matches('[data-mobile-menu]')) {
+      state.mobileMenu = !state.mobileMenu;
+      render();
+      return;
+    }
+    if (target.matches('[data-apply-filters]')) {
+      applyMultiFilters();
+      return;
+    }
+    if (target.matches('[data-remove-multi]')) {
+      state.multi[target.dataset.removeMulti] = state.multi[
+        target.dataset.removeMulti
+      ].filter((v) => v !== target.dataset.value);
+      updateResults();
+      return;
+    }
+    if (target.matches('[data-web-scope]')) {
+      state.webScope = target.dataset.webScope;
+      state.webQuery = '';
+      state.webLimit = 8;
+      refreshView();
+      return;
+    }
+    if (target.matches('[data-new-portal]')) {
+      openEditor('newWebEntry');
+      const select = $('editor-form').elements.webScope;
+      select.value = 'portal';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      return;
+    }
+    if (target.matches('[data-test-settings]')) {
+      if (!isAdmin()) return;
+      state.account = false;
+      state.view = 'admin';
+      state.adminTab = 'testProfiles';
+      render();
+      window.scrollTo({ top: 0 });
+      return;
+    }
+    if (target.matches('[data-favorites-toggle]')) {
+      state.favoritesOpen = !state.favoritesOpen;
+      render();
+      return;
+    }
+    if (target.matches('[data-ad-favourites]')) {
+      state.favoritesOpen = true;
+      render();
+      return;
+    }
+    if (target.matches('[data-promo]')) {
+      state.promo = Number(target.dataset.promo) === 1 ? 1 : 0;
+      refreshView();
+      return;
+    }
+    if (target.matches('[data-help]')) {
+      state.mobileMenu = false;
+      state.account = false;
+      render();
+      openHelp();
+      return;
+    }
+    if (target.matches('[data-feedback-save]')) {
+      const text = $('feedback-message').value.trim();
+      if (!text) {
+        $('feedback-status').textContent = t('required');
+        return;
+      }
+      target.disabled = true;
+      try {
+        await bridge.request('/api/experience/feedback', {
+          topic: $('feedback-topic').value,
+          message: text,
+        });
+        acceptServer(await bridge.request('/api/experience'));
+        $('feedback-status').textContent = wx(
+          'Received. Thank you.',
+          'Alındı. Teşekkürler.',
+        );
+        $('feedback-message').value = '';
+        localStorage.removeItem('arcelik-feedback-draft-' + state.person.id);
+      } catch (error) {
+        $('feedback-status').textContent = error.message;
+      } finally {
+        target.disabled = false;
+      }
+      return;
+    }
+    if (target.matches('[data-help-close]')) {
+      $('helpDialog').close();
+      return;
+    }
+    if (target.matches('[data-location-reset]')) {
+      state.testLocation = 'profile';
+      state.testCountry = '';
+      state.testCompany = '';
+      refreshView();
+      return;
+    }
+    if (target.matches('[data-social]')) {
+      const key = target.dataset.social,
+        id = target.dataset.socialId,
+        selected = !myItems()[key].includes(id);
+      target.disabled = true;
+      try {
+        await savePersonal(key, id, selected);
+        refreshView();
+      } catch (error) {
+        notify(error.message);
+      } finally {
+        if (target.isConnected) target.disabled = false;
+      }
+      return;
+    }
+    if (target.matches('[data-web-more]')) {
+      state.webLimit =
+        (innerWidth <= 680 ? state.webLimit : Math.max(12, state.webLimit)) + 8;
+      renderWebDirectory();
+      return;
+    }
+    if (target.matches('[data-web-group]')) {
+      state.webGroup = target.dataset.webGroup;
+      renderWebDirectory();
+      document
+        .querySelector('[data-web-group="' + state.webGroup + '"]')
+        ?.focus({ preventScroll: true });
+      return;
+    }
+    if (target.matches('[data-destination]')) {
+      navigateCatalogue(target.dataset.destination);
+      return;
+    }
+    if (target.matches('[data-layout]')) {
+      if (!['cards', 'compare'].includes(target.dataset.layout)) return;
+      state.layout = target.dataset.layout;
+      state.selected = null;
+      savePrefs();
+      render();
+      return;
+    }
+    if (target.matches('[data-asset-add]')) {
+      addAssetRow(target.dataset.assetAdd);
+      return;
+    }
+    if (target.matches('[data-remove-resource]')) {
+      target.closest('[data-resource-row]').remove();
+      refreshPrivatePreview();
+      return;
+    }
+    if (target.matches('[data-archive]')) {
+      archiveApps([target.dataset.archive], false);
+      return;
+    }
+    if (target.matches('[data-restore]')) {
+      archiveApps([target.dataset.restore], true);
+      return;
+    }
+    if (target.matches('[data-bulk-archive]')) {
+      archiveApps(state.bulk, false);
+      return;
+    }
+    if (target.matches('[data-bulk-restore]')) {
+      archiveApps(state.bulk, true);
+      return;
+    }
+    if (target.matches('[data-clear-bulk]')) {
+      state.bulk = [];
+      render();
+      return;
+    }
+    if (target.matches('[data-revoke-admin]')) {
+      revokeAdmin(target.dataset.revokeAdmin);
+      return;
+    }
+    if (target.matches('[data-remove-category]')) {
+      removeCategory(target.dataset.removeCategory);
+      return;
+    }
+    if (target.matches('[data-clear-filter]')) {
+      const k = target.dataset.clearFilter;
+      state[k] =
+        k === 'query' ? '' : k === 'sort' ? data.filters.defaultSort : 'all';
+      state.selected = null;
+      render();
+      return;
+    }
+    if (target.matches('[data-reset-filters]')) {
+      state.multi = { category: [], platform: [], label: [] };
+      state.query = '';
+      state.category = 'all';
+      state.platform = 'all';
+      state.label = 'all';
+      state.sort = data.filters.defaultSort;
+      state.selected = null;
+      render();
+      return;
+    }
+    if (target.matches('[data-feature-comment]')) {
+      if (!isAdmin()) return;
+      const a = appById(target.dataset.app),
+        c = a?.comments.find((c) => c.id === target.dataset.featureComment);
+      if (!c) return;
+      const remove = a.featuredComment === c.id;
+      if (!confirm(t(remove ? 'confirmUnfeature' : 'confirmFeature'))) return;
+      const next = structuredClone(data);
+      next.apps.find((x) => x.id === a.id).featuredComment = remove
+        ? null
+        : c.id;
+      try {
+        await persist(next, 'commentFeatured', a.id + ':' + c.id);
+        refreshView();
+      } catch (error) {
+        notify(error.message);
+      }
+      return;
+    }
+    if (target.matches('[data-close-editor]')) {
+      closeEditor();
+      return;
+    }
+    if (target.matches('[data-close-detail]')) {
+      closeDetail();
+      return;
+    }
+    if (target.matches('[data-edit]')) {
+      openEditor(target.dataset.edit, target.dataset.id);
+      return;
+    }
+    if (target.matches('[data-quick-mobile]')) {
+      openEditor('quick');
+      return;
+    }
+    if (target.matches('[data-home]')) {
+      if ($('editDialog').open) {
+        closeEditor();
+        if ($('editDialog').open) return;
+      }
+      goHome();
+      return;
+    }
+    if (target.matches('[data-manage]')) {
+      if (!isAdmin()) return;
+      if ($('editDialog').open) {
+        closeEditor();
+        if ($('editDialog').open) return;
+      }
+      state.view = 'admin';
+      state.adminTab = 'dashboard';
+      state.selected = null;
+      state.account = false;
+      render();
+      window.scrollTo({ top: 0 });
+      return;
+    }
+    if (target.matches('[data-account]')) {
+      state.account = !state.account;
+      render();
+      return;
+    }
+    if (target.matches('[data-person]')) {
+      bridge.switchProfile(target.dataset.person);
+      return;
+    }
+    if (target.matches('[data-lang]')) {
+      state.lang = state.lang === 'en' ? 'tr' : 'en';
+      state.account = false;
+      savePrefs();
+      render();
+      return;
+    }
+    if (target.matches('[data-theme]')) {
+      state.theme = state.theme === 'light' ? 'dark' : 'light';
+      savePrefs();
+      render();
+      return;
+    }
+    if (target.matches('[data-tab]')) {
+      state.multi = { category: [], platform: [], label: [] };
+      state.tab = target.dataset.tab;
+      state.category = 'all';
+      state.expanded = null;
+      state.selected = null;
+      state.platform = 'all';
+      state.label = 'all';
+      state.sort = data.filters.defaultSort;
+      render();
+      return;
+    }
+    if (target.matches('[data-category]')) {
+      state.category = 'all';
+      state.multi.category =
+        target.dataset.category === 'all' ? [] : [target.dataset.category];
+      state.selected = null;
+      render();
+      return;
+    }
+    if (target.matches('[data-expand]')) {
+      state.expanded =
+        state.expanded === target.dataset.expand ? null : target.dataset.expand;
+      const pos = window.scrollY;
+      render();
+      window.scrollTo({ top: pos });
+      return;
+    }
+    if (target.matches('[data-open]')) {
+      selectApp(target.dataset.open);
+      return;
+    }
+    if (target.matches('[data-suggest]')) {
+      selectApp(target.dataset.suggest);
+      return;
+    }
+    if (target.matches('[data-admin-tab]')) {
+      if ($('editDialog').open) {
+        closeEditor();
+        if ($('editDialog').open) return;
+      }
+      state.adminTab = target.dataset.adminTab;
+      render();
+      return;
+    }
+    if (target.matches('[data-toggle-app]')) {
+      if (!isAdmin() || !confirm(t('confirmVisibility'))) return;
+      const next = structuredClone(data),
+        a = next.apps.find((a) => a.id === target.dataset.toggleApp);
+      a.active = !a.active;
+      try {
+        await persist(next, 'changeStatus', a.id);
+        render();
+      } catch (error) {
+        notify(error.message);
+      }
+      return;
+    }
+    if (target.matches('[data-open-resource]')) {
+      openResource(
+        target.dataset.app,
+        target.dataset.resourceType,
+        target.dataset.openResource,
+      );
+      return;
+    }
+    if (target.matches('[data-download]')) {
+      const a = appById(target.dataset.download);
+      if (a?.url?.startsWith('https://'))
+        window.open(
+          bridge.openPath('app:' + a.id),
+          '_blank',
+          'noopener,noreferrer',
+        );
+      return;
+    }
+    if (!e.target.closest('.search-wrap')) hideSuggestions();
+  });
+  onDocument('input', (e) => {
+    if (e.target.name === 'employeeId' && $('employee-match'))
+      $('employee-match').innerHTML = employeeMatch(e.target.value.trim());
+    if (
+      e.target.closest('#editor-form') &&
+      ['app', 'newapp'].includes(editorContext?.kind)
+    )
+      refreshPrivatePreview();
+    if (e.target.id === 'admin-app-search') {
+      state.adminQuery = e.target.value;
+      renderAdminApps();
+      return;
+    }
+    if (e.target.id === 'translation-search') {
+      state.translationPage = 1;
+      state.translationQuery = e.target.value;
+      renderTranslationRows();
+      return;
+    }
+    if (e.target.hasAttribute('data-comment')) {
+      state.commentDrafts[e.target.dataset.comment] = {
+        text: e.target.value,
+        language: state.lang,
+      };
+      const count = e.target.closest('form').querySelector('.comment-counter');
+      if (count) count.textContent = e.target.value.length + '/300';
+      return;
+    }
+    if (e.target.id === 'search') {
+      state.query = e.target.value;
+      state.suggestionIndex = -1;
+      updateResults();
+      showSuggestions();
+    }
+  });
+  onDocument('focusin', (e) => {
+    if (e.target.id === 'search') showSuggestions();
+  });
+  onDocument('keydown', (e) => {
+    if (e.target.id === 'search') {
+      const list = visibleSuggestions();
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        state.suggestionIndex = list.length
+          ? state.suggestionIndex < 0
+            ? e.key === 'ArrowDown'
+              ? 0
+              : list.length - 1
+            : (state.suggestionIndex +
+                (e.key === 'ArrowDown' ? 1 : -1) +
+                list.length) %
+              list.length
+          : -1;
+        showSuggestions();
+      }
+      if (e.key === 'Escape') {
+        hideSuggestions();
+      }
+      if (
+        e.key === 'Enter' &&
+        state.suggestionIndex >= 0 &&
+        list[state.suggestionIndex]
+      ) {
+        e.preventDefault();
+        selectApp(list[state.suggestionIndex].id);
+      }
+    }
+  });
+  onDocument('change', async (e) => {
+    if (e.target.id === 'admin-status') {
+      state.adminStatus = e.target.value;
+      renderAdminApps();
+      return;
+    }
+    if (e.target.id === 'bulk-all') {
+      for (const a of visibleAdminApps()) {
+        if (e.target.checked && !state.bulk.includes(a.id))
+          state.bulk.push(a.id);
+        else if (!e.target.checked)
+          state.bulk = state.bulk.filter((id) => id !== a.id);
+      }
+      renderAdminApps();
+      return;
+    }
+    if (e.target.matches('[data-bulk-app]')) {
+      const id = e.target.dataset.bulkApp;
+      state.bulk = e.target.checked
+        ? [...new Set([...state.bulk, id])]
+        : state.bulk.filter((x) => x !== id);
+      renderAdminApps();
+      return;
+    }
+    if (
+      e.target.closest('#editor-form') &&
+      ['app', 'newapp'].includes(editorContext?.kind) &&
+      e.target.type !== 'file'
+    )
+      refreshPrivatePreview();
+    if (
+      ['platform', 'category-filter', 'label-filter', 'sort-filter'].includes(
+        e.target.id,
+      )
+    ) {
+      const key = {
+        platform: 'platform',
+        'category-filter': 'category',
+        'label-filter': 'label',
+        'sort-filter': 'sort',
+      }[e.target.id];
+      state[key] = e.target.value;
+      state.selected = null;
+      const focusId = e.target.id;
+      render();
+      $(focusId)?.focus({ preventScroll: true });
+    }
+    if (e.target.type === 'file' && $('upload-preview')) {
+      try {
+        const src = await readFile(e.target.files[0]);
+        if (src) {
+          $('upload-preview').src = src;
+          $('upload-preview').hidden = false;
+          if (editorContext) editorContext.imagePreview = src;
+          refreshPrivatePreview();
+        }
+      } catch (error) {
+        e.target.value = '';
+        if (editorContext) editorContext.imagePreview = null;
+        if ($('upload-preview')) $('upload-preview').hidden = true;
+        refreshPrivatePreview();
+        $('form-error').textContent = error.message;
+        $('form-error').hidden = false;
+      }
+    }
+  });
+  onDocument('submit', async (e) => {
+    if (e.target.id === 'search-form') {
+      e.preventDefault();
+      if (state.query.trim()) recordActivity('activitySearch', state.query);
+      hideSuggestions();
+      updateResults();
+    }
+    if (e.target.id === 'editor-form') {
+      e.preventDefault();
+      saveEditor(e.target);
+    }
+    if (e.target.matches('.comment-form')) {
+      e.preventDefault();
+      const appId = e.target.dataset.app,
+        text = e.target.elements.namedItem('comment').value.trim();
+      if (!text || text.length > 300) {
+        notify(t('required'));
+        return;
+      }
+      const language = state.commentDrafts[appId]?.language || state.lang;
+      try {
+        acceptServer(
+          await bridge.request('/api/experience/comments', {
+            appId,
+            text,
+            language,
+          }),
+        );
+        delete state.commentDrafts[appId];
+        refreshView();
+      } catch (error) {
+        notify(error.message);
+      }
+    }
+  });
+  onDocument(
+    'toggle',
+    (e) => {
+      if (e.target.id === 'filter-panel') state.filtersOpen = e.target.open;
+      if (e.target.matches('.category-disclosure') && e.target.isConnected) {
+        if (innerWidth > 680) e.target.open = true;
+        else state.categoryMenuOpen = e.target.open;
+      }
+    },
+    true,
+  );
+  $('editDialog').addEventListener('cancel', (e) => {
+    e.preventDefault();
+    closeEditor();
+  });
+  $('mobileDetail').addEventListener('close', () => {
+    document.body.style.overflow = '';
+    if (!closingMobile) {
+      state.selected = null;
+      render();
+    }
+  });
+  onWindow(
+    'scroll',
+    () => {
+      updateScrollCue();
+      const current = window.scrollY,
+        welcome = $('welcome'),
+        header = document.querySelector('.topbar');
+      if (
+        state.selected &&
+        !isMobile() &&
+        current < previousScroll &&
+        welcome?.getBoundingClientRect().bottom >
+          header.getBoundingClientRect().bottom + 24
+      ) {
+        state.selected = null;
+        render();
+      }
+      previousScroll = current;
+    },
+    { passive: true },
+  );
+  let resizeTimer;
+  onWindow('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if ($('editDialog').open) {
+        if (innerWidth < 900) {
+          closeEditor();
+          if ($('editDialog').open) return;
+        } else return;
+      }
+      const narrow = innerWidth <= 680;
+      if (narrow !== state.narrowLayout) {
+        state.narrowLayout = narrow;
+        state.layout = narrow
+          ? prefs.layoutMobile === 'compare'
+            ? 'compare'
+            : 'cards'
+          : prefs.layoutDesktop === 'compare'
+            ? 'compare'
+            : 'cards';
+        state.categoryMenuOpen = null;
+      }
+      if ($('mobileDetail').open && !isMobile()) {
+        closingMobile = true;
+        $('mobileDetail').close();
+        closingMobile = false;
+        document.body.style.overflow = '';
+      }
+      render();
+      if (state.selected && isMobile() && !$('mobileDetail').open)
+        showMobileDetail(appById(state.selected));
+    }, 160);
+  });
+  ownedInterval(() => {
+    if (!$('search') || document.activeElement === $('search') || state.query)
+      return;
+    state.rotation++;
+    $('search').placeholder = searchPlaceholder();
+  }, 4200);
+  $('mobileDetail').addEventListener(
+    'scroll',
+    () => updateScrollCue($('mobileDetail')),
+    { passive: true },
+  );
+  onDocument(
+    'scroll',
+    (e) => {
+      if (e.target.id === 'detail-pane') updateScrollCue(e.target);
+    },
+    true,
+  );
+  onDocument('pointermove', (e) => {
+    const hero = e.target.closest('.hero');
+    if (
+      !hero ||
+      (e.pointerType && e.pointerType !== 'mouse') ||
+      matchMedia('(prefers-reduced-motion: reduce)').matches
+    )
+      return;
+    const r = hero.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const x = (e.clientX - r.left) / r.width - 0.5,
+      y = (e.clientY - r.top) / r.height - 0.5;
+    hero.style.setProperty('--hero-x', x * 18 + 'px');
+    hero.style.setProperty('--hero-y', y * 14 + 'px');
+    hero.style.setProperty('--hero-turn', x * 5 + 'deg');
+    hero.style.setProperty('--hero-light-x', 50 + x * 40 + '%');
+    hero.style.setProperty('--hero-light-y', 50 + y * 40 + '%');
+  });
+  onDocument('pointerout', (e) => {
+    const hero = e.target.closest('.hero');
+    if (hero && !hero.contains(e.relatedTarget)) {
+      hero.style.setProperty('--hero-x', '0px');
+      hero.style.setProperty('--hero-y', '0px');
+      hero.style.setProperty('--hero-turn', '0deg');
+    }
+  });
+  // ADMIN ENHANCEMENTS: language registry, database reports and guided access.
+  let adminReport = { key: '', value: null, loading: false, error: '' },
+    reportGeneration = 0;
+  const dateInput = (d) => d.toISOString().slice(0, 10);
+  let reportFilters = {
+    from: dateInput(new Date(Date.now() - 30 * 86400000)),
+    to: dateInput(new Date()),
+    q: '',
+    user: '',
+    action: '',
+    entity: '',
+    outcome: '',
+    page: 1,
+  };
+  state.translationLanguage = state.lang;
+  state.translationScope = 'interface';
+  state.translationMissing = false;
+  function languages() {
+    return (
+      data.languages || [
+        { code: 'en', name: 'English' },
+        { code: 'tr', name: 'Türkçe' },
+      ]
+    );
+  }
+  function languageOptions(selected) {
+    return languages()
+      .map(
+        (l) =>
+          '<option value="' +
+          esc(l.code) +
+          '"' +
+          (selected === l.code ? ' selected' : '') +
+          '>' +
+          esc(l.name) +
+          ' · ' +
+          esc(l.code) +
+          '</option>',
+      )
+      .join('');
+  }
+  function languageControl() {
+    return (
+      '<select class="language-select" data-ui-language aria-label="' +
+      wx('Language', 'Dil') +
+      '">' +
+      languageOptions(state.lang) +
+      '</select>'
+    );
+  }
+
+  function reportQuery(kind) {
+    const q = new URLSearchParams({
+      kind,
+      ...reportFilters,
+      ...(kind === 'overview'
+        ? { q: '', user: '', action: '', entity: '', outcome: '', page: 1 }
+        : {}),
+      from: reportFilters.from + 'T00:00:00+03:00',
+      to: new Date(
+        new Date(reportFilters.to + 'T00:00:00+03:00').getTime() + 86400000,
+      ).toISOString(),
+    });
+    return q.toString();
+  }
+  function ensureReport(kind) {
+    const key = reportQuery(kind);
+    if (adminReport.key !== key) {
+      adminReport = { key, value: null, loading: true, error: '' };
+      const generation = ++reportGeneration;
+      Promise.resolve()
+        .then(() => bridge.request('/api/experience/report?' + key))
+        .then((value) => {
+          if (generation !== reportGeneration) return;
+          adminReport = { key, value, loading: false, error: '' };
+          if (state.view === 'admin') render();
+        })
+        .catch((error) => {
+          if (generation !== reportGeneration) return;
+          adminReport = {
+            key,
+            value: null,
+            loading: false,
+            error: error.message,
+          };
+          if (state.view === 'admin') render();
+        });
+    }
+    return adminReport.value;
+  }
+  function actionName(key) {
+    const label = t(key);
+    return label !== key
+      ? label
+      : key
+          .replace(/([a-z])([A-Z])/g, '$1 $2')
+          .replaceAll('_', ' ')
+          .replace(/^./, (s) => s.toUpperCase());
+  }
+  function resourceName(id) {
+    const key = String(id || '').replace(/^(app|web):/, '');
+    const a =
+      data.apps.find((a) => a.id === key) ||
+      data.webEntries.find((a) => a.id === key) ||
+      (data.webPortal.id === key ? data.webPortal : null);
+    return a ? content(a).name || id : id || '—';
+  }
+  function resultName(value) {
+    return (
+      {
+        redirect_issued: wx('Link opened', 'Bağlantı açıldı'),
+        linkOpened: wx('Link opened', 'Bağlantı açıldı'),
+        file_requested: wx('File requested', 'Dosya istendi'),
+        blocked: wx('Blocked', 'Engellendi'),
+      }[value] ||
+      value ||
+      '—'
+    );
+  }
+  function reportDates() {
+    return (
+      '<label>' +
+      wx('From', 'Başlangıç') +
+      '<input type="date" name="from" required value="' +
+      esc(reportFilters.from) +
+      '"></label><label>' +
+      wx('Through', 'Bitiş') +
+      '<input type="date" name="to" required value="' +
+      esc(reportFilters.to) +
+      '"></label>'
+    );
+  }
+  function reportStatus() {
+    return adminReport.loading
+      ? '<p role="status">' +
+          wx(
+            'Loading recorded activity…',
+            'Kaydedilen hareketler yükleniyor…',
+          ) +
+          '</p>'
+      : adminReport.error
+        ? '<p class="warning" role="alert">' +
+          esc(adminReport.error) +
+          ' <button class="btn" data-report-refresh>' +
+          wx('Retry', 'Yeniden dene') +
+          '</button></p>'
+        : '';
+  }
+  function reportOrigin(r) {
+    return (
+      '<p class="report-origin">' +
+      (r?.source === 'postgresql'
+        ? wx('PostgreSQL records', 'PostgreSQL kayıtları')
+        : wx(
+            'HTML preview · events in this browser only',
+            'HTML önizleme · yalnızca bu tarayıcının hareketleri',
+          )) +
+      (r?.generatedAt
+        ? ' · ' + new Date(r.generatedAt).toLocaleString(state.lang)
+        : '') +
+      '</p>'
+    );
+  }
+  function overviewRing(label, segments, total, center) {
+    let offset = 0;
+    const stops = segments
+      .filter(([, count]) => count > 0)
+      .map(([, count, color]) => {
+        const start = offset;
+        offset += (100 * count) / total;
+        return color + ' ' + start + '% ' + Math.min(100, offset) + '%';
+      });
+    const fill = stops.length
+      ? 'conic-gradient(' + stops.join(',') + ')'
+      : 'var(--line)';
+    return (
+      '<div class="overview-ring-group"><div class="overview-ring" aria-hidden="true" style="--ring-fill:' +
+      fill +
+      '"><b>' +
+      center +
+      '</b></div><ul aria-label="' +
+      esc(label) +
+      '">' +
+      segments
+        .map(
+          ([name, count, color]) =>
+            '<li><i aria-hidden="true" style="background:' +
+            color +
+            '"></i><span>' +
+            name +
+            '</span><strong>' +
+            Number(count).toLocaleString(state.lang) +
+            '</strong></li>',
+        )
+        .join('') +
+      '</ul></div>'
+    );
+  }
+  function dashboardPanel() {
+    const r = ensureReport('overview');
+    const active = r?.activeApplications ?? 0,
+      ready = r?.readyApplications ?? 0,
+      percent = active ? Math.round((100 * ready) / active) : 0;
+    const downloads = Number(r?.downloadRequests || 0),
+      visits = Number(r?.webVisits || 0),
+      total = downloads + visits;
+    const activityLabel = wx('Link activity', 'Bağlantı hareketleri'),
+      readinessLabel = wx('Link readiness', 'Bağlantı hazırlığı');
+    return (
+      '<div class="section-heading"><h2>' +
+      t('dashboard') +
+      '</h2><button class="btn" data-report-refresh>' +
+      wx('Refresh', 'Yenile') +
+      '</button></div><form class="report-filters" id="report-filters">' +
+      reportDates() +
+      '<button class="btn primary">' +
+      wx('Apply dates', 'Tarihleri uygula') +
+      '</button></form>' +
+      reportStatus() +
+      (r
+        ? reportOrigin(r) +
+          '<p class="muted">' +
+          wx(
+            'Accepted link requests, not completed installations. Empty history shows zero.',
+            'Kabul edilen bağlantı istekleri; tamamlanan kurulumlar değil. Kayıt yoksa sıfır gösterilir.',
+          ) +
+          '</p><div class="dashboard-stats">' +
+          [
+            [wx('Download requests', 'İndirme istekleri'), r.downloadRequests],
+            [
+              wx('Web and portal visits', 'Web ve portal ziyaretleri'),
+              r.webVisits,
+            ],
+            [wx('Active applications', 'Aktif uygulamalar'), active],
+          ]
+            .map(
+              ([label, count]) =>
+                '<article><span>' +
+                label +
+                '</span><b>' +
+                Number(count || 0).toLocaleString(state.lang) +
+                '</b></article>',
+            )
+            .join('') +
+          '</div><div class="dashboard-grid"><article class="dashboard-chart"><h3>' +
+          wx('Most requested applications', 'En çok istenen uygulamalar') +
+          '</h3>' +
+          (r.byApplication.length
+            ? r.byApplication
+                .map(
+                  (a) =>
+                    '<div class="report-rank"><b>' +
+                    esc(resourceName(a.resource)) +
+                    '</b><strong>' +
+                    a.count +
+                    '</strong></div>',
+                )
+                .join('')
+            : '<p>' +
+              wx(
+                'No download requests in this period.',
+                'Bu dönemde indirme isteği yok.',
+              ) +
+              '</p>') +
+          '</article><article class="dashboard-chart"><h3>' +
+          readinessLabel +
+          '</h3>' +
+          overviewRing(
+            readinessLabel,
+            [
+              [wx('Ready', 'Hazır'), ready, 'var(--chart-primary)'],
+              [wx('Pending', 'Bekliyor'), active - ready, 'var(--line)'],
+            ],
+            active,
+            percent + '%',
+          ) +
+          '<p>' +
+          ready +
+          ' / ' +
+          active +
+          ' ' +
+          wx(
+            'applications have a ready link',
+            'uygulamanın hazır bağlantısı var',
+          ) +
+          '</p></article><article class="dashboard-chart"><h3>' +
+          activityLabel +
+          '</h3>' +
+          overviewRing(
+            activityLabel,
+            [
+              [
+                wx('Download requests', 'İndirme istekleri'),
+                downloads,
+                'var(--chart-primary)',
+              ],
+              [
+                wx('Web and portal visits', 'Web ve portal ziyaretleri'),
+                visits,
+                'var(--chart-secondary)',
+              ],
+            ],
+            total,
+            total.toLocaleString(state.lang),
+          ) +
+          '</article><article class="dashboard-chart"><h3>' +
+          wx('Daily recorded activity', 'Günlük kaydedilen hareket') +
+          '</h3>' +
+          (r.daily.length
+            ? r.daily
+                .map(
+                  (d) =>
+                    '<div class="report-rank"><span>' +
+                    esc(d.day) +
+                    '</span><b>' +
+                    d.count +
+                    '</b></div>',
+                )
+                .join('')
+            : '<p>' +
+              wx('No activity in this period.', 'Bu dönemde hareket yok.') +
+              '</p>') +
+          '</article></div>'
+        : '')
+    );
+  }
+  function filterSelect(name, label, rows, selected, labelFn = (x) => x) {
+    return (
+      '<label>' +
+      label +
+      '<select name="' +
+      name +
+      '"><option value="">' +
+      wx('All', 'Tümü') +
+      '</option>' +
+      rows
+        .map((x) => {
+          const value = typeof x === 'object' ? x.id : x;
+          return (
+            '<option value="' +
+            esc(value) +
+            '"' +
+            (selected === value ? ' selected' : '') +
+            '>' +
+            esc(labelFn(x)) +
+            '</option>'
+          );
+        })
+        .join('') +
+      '</select></label>'
+    );
+  }
+  function logPanel(kind) {
+    const r = ensureReport(kind);
+    return (
+      '<div class="section-heading"><h2>' +
+      t(kind === 'audit' ? 'audit' : 'activity') +
+      '</h2><button class="btn" data-report-refresh>' +
+      wx('Refresh', 'Yenile') +
+      '</button></div><form id="report-filters" class="report-filters"><label class="report-search">' +
+      wx('Find a record', 'Kayıt bul') +
+      '<input type="search" name="q" value="' +
+      esc(reportFilters.q) +
+      '" placeholder="' +
+      wx(
+        'Name, user ID, action or application',
+        'Ad, sicil, işlem veya uygulama',
+      ) +
+      '"></label>' +
+      reportDates() +
+      filterSelect(
+        'user',
+        wx('User', 'Kullanıcı'),
+        r?.users || [],
+        reportFilters.user,
+        (x) => x.name + ' · ' + x.id,
+      ) +
+      filterSelect(
+        'action',
+        wx('Action', 'İşlem'),
+        r?.actions || [],
+        reportFilters.action,
+        actionName,
+      ) +
+      filterSelect(
+        'entity',
+        wx('Application / item', 'Uygulama / öğe'),
+        r?.entities || [],
+        reportFilters.entity,
+        resourceName,
+      ) +
+      filterSelect(
+        'outcome',
+        wx('Result', 'Sonuç'),
+        r?.outcomes || [],
+        reportFilters.outcome,
+        resultName,
+      ) +
+      '<button class="btn primary">' +
+      wx('Search logs', 'Kayıtlarda ara') +
+      '</button><button type="button" class="btn" data-clear-report>' +
+      wx('Clear filters', 'Filtreleri temizle') +
+      '</button></form>' +
+      reportStatus() +
+      (r
+        ? reportOrigin(r) +
+          '<p>' +
+          r.total.toLocaleString(state.lang) +
+          ' ' +
+          wx('matching records', 'eşleşen kayıt') +
+          '</p><div class="report-table-wrap"><table class="report-table"><thead><tr>' +
+          [
+            wx('When', 'Zaman'),
+            wx('Who', 'Kullanıcı'),
+            wx('Action', 'İşlem'),
+            wx('Application / item', 'Uygulama / öğe'),
+            wx('Result / details', 'Sonuç / ayrıntı'),
+          ]
+            .map((x) => '<th>' + x + '</th>')
+            .join('') +
+          '</tr></thead><tbody>' +
+          (r.items.length
+            ? r.items
+                .map(
+                  (e) =>
+                    '<tr><td><time>' +
+                    esc(
+                      new Date(e.time).toLocaleString(state.lang, {
+                        timeZone: 'Europe/Istanbul',
+                      }),
+                    ) +
+                    '</time></td><td><b>' +
+                    esc(e.person) +
+                    '</b><small>' +
+                    esc(e.userId) +
+                    '</small></td><td>' +
+                    esc(actionName(e.key)) +
+                    '</td><td>' +
+                    esc(resourceName(e.entity)) +
+                    '</td><td>' +
+                    esc(resultName(e.outcome)) +
+                    (e.details?.changedSections
+                      ? '<details><summary>' +
+                        wx('What changed?', 'Ne değişti?') +
+                        '</summary><p>' +
+                        esc(
+                          e.details.changedSections.map(actionName).join(', '),
+                        ) +
+                        '</p></details>'
+                      : '') +
+                    '<small>' +
+                    esc(e.id) +
+                    '</small></td></tr>',
+                )
+                .join('')
+            : '<tr><td colspan="5">' +
+              wx(
+                'No records match these filters.',
+                'Bu filtrelerle eşleşen kayıt yok.',
+              ) +
+              '</td></tr>') +
+          '</tbody></table></div><div class="report-pages"><button class="btn" data-report-page="' +
+          (r.page - 1) +
+          '"' +
+          (r.page <= 1 ? ' disabled' : '') +
+          '>' +
+          wx('Previous', 'Önceki') +
+          '</button><span>' +
+          wx('Page', 'Sayfa') +
+          ' ' +
+          r.page +
+          ' / ' +
+          Math.max(1, Math.ceil(r.total / r.pageSize)) +
+          '</span><button class="btn" data-report-page="' +
+          (r.page + 1) +
+          '"' +
+          (r.page * r.pageSize >= r.total ? ' disabled' : '') +
+          '>' +
+          wx('Next', 'Sonraki') +
+          '</button></div>'
+        : '')
+    );
+  }
+  function activityPanel() {
+    return logPanel('activity');
+  }
+  function auditPanel() {
+    return logPanel('audit');
+  }
+  function translationEntries() {
+    const lang = state.translationLanguage || state.lang,
+      rows = [];
+    for (const key of new Set([
+      ...Object.keys(interfaceText.en),
+      ...Object.keys(data.uiOverrides.en || {}),
+    ]))
+      rows.push({
+        id: 'ui:' + key,
+        scope: 'interface',
+        name: data.uiOverrides.en?.[key] || interfaceText.en[key],
+        field: key,
+        source: data.uiOverrides.en?.[key] || interfaceText.en[key],
+        target:
+          data.uiOverrides[lang]?.[key] ?? interfaceText[lang]?.[key] ?? '',
+      });
+    for (const a of data.apps)
+      for (const field of ['name', 'summary', 'description'])
+        rows.push({
+          id: 'app:' + a.id + ':' + field,
+          scope: 'applications',
+          name: content(a, 'en').name,
+          field,
+          source: a.en?.[field] || '',
+          target: a[lang]?.[field] || '',
+        });
+    for (const a of [...data.webEntries, data.webPortal])
+      for (const field of ['name', 'description'])
+        rows.push({
+          id: 'web:' + a.id + ':' + field,
+          scope: 'applications',
+          name: content(a, 'en').name,
+          field,
+          source: a.en?.[field] || '',
+          target: a[lang]?.[field] || '',
+        });
+    for (const c of data.categories)
+      rows.push({
+        id: 'category:' + c.id,
+        scope: 'categories',
+        name: c.en,
+        field: 'name',
+        source: c.en,
+        target: c[lang] || '',
+      });
+    for (const field of ['greeting', 'title', 'accent', 'subtitle'])
+      rows.push({
+        id: 'copy:' + field,
+        scope: 'page',
+        name: field,
+        field,
+        source: data.copy.en[field],
+        target: data.copy[lang]?.[field] || '',
+      });
+    return rows;
+  }
+  function translationsPanel() {
+    const lang = state.translationLanguage || state.lang;
+    return (
+      '<h2>' +
+      t('translations') +
+      '</h2><p>' +
+      wx(
+        'Add any language. Missing text uses English.',
+        'İstediğin dili ekle. Eksik metinlerde İngilizce kullanılır.',
+      ) +
+      '</p><form id="add-language" class="language-add"><label>' +
+      wx('Language name', 'Dil adı') +
+      '<input name="name" required placeholder="Español"></label><label>' +
+      wx('Language code', 'Dil kodu') +
+      '<input name="code" required placeholder="es / it / pl / pt-BR"></label><button class="btn primary">' +
+      wx('Add language', 'Dil ekle') +
+      '</button></form><div class="translation-controls"><label>' +
+      wx('Editing language', 'Düzenlenen dil') +
+      '<select id="translation-language">' +
+      languageOptions(lang) +
+      '</select></label><label>' +
+      wx('Content', 'İçerik') +
+      '<select id="translation-scope">' +
+      [
+        ['interface', wx('Interface text', 'Arayüz metinleri')],
+        ['applications', wx('Applications', 'Uygulamalar')],
+        ['categories', wx('Categories', 'Kategoriler')],
+        ['page', wx('Page headings', 'Sayfa başlıkları')],
+      ]
+        .map(
+          ([id, name]) =>
+            '<option value="' +
+            id +
+            '"' +
+            (state.translationScope === id ? ' selected' : '') +
+            '>' +
+            name +
+            '</option>',
+        )
+        .join('') +
+      '</select></label><label>' +
+      wx('Search text', 'Metin ara') +
+      '<input id="translation-search" type="search" value="' +
+      esc(state.translationQuery) +
+      '"></label><label class="check translation-missing"><input type="checkbox" id="translation-missing"' +
+      (state.translationMissing ? ' checked' : '') +
+      '>' +
+      wx('Only missing translations', 'Yalnızca eksik çeviriler') +
+      '</label></div><div id="translation-rows">' +
+      translationRows() +
+      '</div>'
+    );
+  }
+  function translationRows() {
+    const query = state.translationQuery.toLocaleLowerCase(state.lang),
+      rows = translationEntries().filter(
+        (r) =>
+          r.scope === state.translationScope &&
+          (!state.translationMissing || !r.target.trim()) &&
+          (r.name + ' ' + r.source + ' ' + r.target)
+            .toLocaleLowerCase(state.lang)
+            .includes(query),
+      );
+    const pageSize = 10,
+      pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+    const page = (state.translationPage = Math.min(
+      state.translationPage || 1,
+      pageCount,
+    ));
+    const start = (page - 1) * pageSize;
+    const pageNumbers = Array.from(
+      { length: pageCount },
+      (_, i) => i + 1,
+    ).filter((n) => n === 1 || n === pageCount || Math.abs(n - page) <= 2);
+    const pager =
+      pageCount > 1
+        ? '<nav class="translation-pages" aria-label="' +
+          wx('Translation pages', 'Çeviri sayfaları') +
+          '"><button class="btn" data-translation-page="' +
+          (page - 1) +
+          '"' +
+          (page === 1 ? ' disabled' : '') +
+          '>' +
+          wx('Previous', 'Önceki') +
+          '</button>' +
+          pageNumbers
+            .map(
+              (n, i) =>
+                (i && n - pageNumbers[i - 1] > 1 ? '<span>…</span>' : '') +
+                '<button class="btn" data-translation-page="' +
+                n +
+                '"' +
+                (n === page ? ' aria-current="page"' : '') +
+                '>' +
+                n +
+                '</button>',
+            )
+            .join('') +
+          '<button class="btn" data-translation-page="' +
+          (page + 1) +
+          '"' +
+          (page === pageCount ? ' disabled' : '') +
+          '>' +
+          wx('Next', 'Sonraki') +
+          '</button></nav>'
+        : '';
+    return (
+      '<p>' +
+      rows.length +
+      ' ' +
+      wx('texts · English is the fallback', 'metin · İngilizce yedek dildir') +
+      '</p>' +
+      rows
+        .slice(start, start + pageSize)
+        .map(
+          (r) =>
+            '<article class="translation-editor"><div><b>' +
+            esc(r.name) +
+            '</b><small>' +
+            esc(r.field) +
+            '</small><p>' +
+            esc(r.source || '—') +
+            '</p></div><label>' +
+            esc(
+              languages().find((l) => l.code === state.translationLanguage)
+                ?.name || state.translationLanguage,
+            ) +
+            '<textarea data-i18n-input="' +
+            esc(r.id) +
+            '" placeholder="' +
+            wx('Empty = English fallback', 'Boş = İngilizce') +
+            '">' +
+            esc(r.target) +
+            '</textarea></label><button class="btn" data-save-i18n="' +
+            esc(r.id) +
+            '">' +
+            wx('Save', 'Kaydet') +
+            '</button></article>',
+        )
+        .join('') +
+      pager
+    );
+  }
+  function adminsPanel() {
+    const query = (state.accessSearch || '').toLowerCase(),
+      assignments = data.adminAssignments.filter((a) => {
+        const p = PEOPLE.find((p) => p.id === a.profileId);
+        return ((p?.name || '') + ' ' + a.employeeId)
+          .toLowerCase()
+          .includes(query);
+      });
+    return (
+      '<h2>' +
+      wx('Administrator access', 'Yönetici erişimi') +
+      '</h2><p>' +
+      wx(
+        'Only signed-in, registered users can be granted Admin access. Test profiles below never create real company accounts.',
+        'Yalnızca giriş yapmış kayıtlı kullanıcılara yönetici yetkisi verilir. Test profilleri gerçek şirket hesabı oluşturmaz.',
+      ) +
+      '</p><div class="access-summary"><b>' +
+      esc(bridge.bootstrap.actor?.name || state.person.name) +
+      '</b><span>' +
+      wx('Your signed-in account · Admin', 'Giriş yapan hesabın · Yönetici') +
+      '</span></div><form id="grant-admin" class="language-add"><label>' +
+      wx('Choose a registered user', 'Kayıtlı kullanıcı seç') +
+      '<select name="user" required><option value="">' +
+      wx('Select a user', 'Kullanıcı seç') +
+      '</option>' +
+      PEOPLE.filter((p) => !data.admins.includes(p.id))
+        .map(
+          (p) =>
+            '<option value="' +
+            esc(p.id) +
+            '">' +
+            esc(p.name) +
+            ' · ' +
+            esc(p.employeeId || p.id) +
+            '</option>',
+        )
+        .join('') +
+      '</select></label><button class="btn primary">' +
+      wx('Grant Admin access', 'Yönetici yetkisi ver') +
+      '</button></form><label>' +
+      wx('Find an administrator', 'Yönetici bul') +
+      '<input type="search" id="access-search" value="' +
+      esc(state.accessSearch || '') +
+      '"></label>' +
+      assignments
+        .map((a) => {
+          const p = PEOPLE.find((p) => p.id === a.profileId),
+            own =
+              a.profileId === (bridge.bootstrap.actor?.id || state.person.id);
+          return (
+            '<div class="admin-row"><div class="grow"><b>' +
+            esc(p?.name || a.profileId) +
+            '</b><small>' +
+            esc(a.employeeId) +
+            '</small></div><span class="status">' +
+            wx('Admin', 'Yönetici') +
+            '</span>' +
+            (own
+              ? '<span class="muted">' +
+                wx('Your access is protected', 'Kendi yetkin korunuyor') +
+                '</span>'
+              : '<button class="btn danger" data-revoke-admin="' +
+                esc(a.employeeId) +
+                '">' +
+                wx('Revoke access', 'Yetkiyi kaldır') +
+                '</button>') +
+            '</div>'
+          );
+        })
+        .join('')
+    );
+  }
+  function builtInTestPeople() {
+    return bridge.bootstrap.authMode === 'TestProfiles' ? PEOPLE : [];
+  }
+  function testProfileRecords() {
+    return [
+      ...builtInTestPeople().map((p) => ({
+        ...p,
+        ...data.builtInTestProfileDetails?.[p.id],
+      })),
+      ...data.testProfiles,
+    ];
+  }
+  function testProfilesPanel() {
+    const cards = testProfileRecords()
+      .map((p) => {
+        const role =
+          p.synthetic && p.testRole
+            ? p.testRole
+            : data.admins.includes(p.id)
+              ? 'admin'
+              : 'employee';
+        const labels = {
+          Manager: wx('Manager', 'Yönetici'),
+          Contractor: wx('Contractor', 'Yüklenici'),
+          Other: wx('Other', 'Diğer'),
+        };
+        const type = Object.hasOwn(labels, p.employeeType)
+          ? labels[p.employeeType]
+          : p.employeeType;
+        const fields = [
+          [wx('Employee ID', 'Sicil Numarası'), p.employeeId],
+          [wx('Company Code', 'Şirket Kodu'), p.companyCode],
+          [wx('Employee Type', 'Çalışan Türü'), type],
+        ];
+        return (
+          '<article class="access-card"><b>' +
+          esc(p.name) +
+          '</b><span>' +
+          t(role) +
+          '</span><dl class="test-account-details">' +
+          fields
+            .map(
+              ([label, value]) =>
+                '<div><dt>' +
+                label +
+                '</dt><dd>' +
+                esc(value || '—') +
+                '</dd></div>',
+            )
+            .join('') +
+          '</dl>' +
+          '<button class="btn" data-edit="testProfile" data-id="' +
+          esc(p.id) +
+          '" aria-label="' +
+          esc(
+            wx('Edit Test Profile', 'Test Profilini Düzenle') + ' · ' + p.name,
+          ) +
+          '">' +
+          wx('Edit', 'Düzenle') +
+          '</button></article>'
+        );
+      })
+      .join('');
+    return (
+      '<div class="section-heading"><h2>' +
+      wx('Test Accounts', 'Test Hesapları') +
+      '</h2><button class="btn primary" data-edit="testProfile">+ ' +
+      wx('Create A Test Account', 'Test Hesabı Oluştur') +
+      '</button></div><div class="test-profile-grid">' +
+      cards +
+      '</div>'
+    );
+  }
+  onDocument('submit', async (e) => {
+    if (e.target.id === 'report-filters') {
+      e.preventDefault();
+      const form = new FormData(e.target);
+      for (const key of [
+        'from',
+        'to',
+        'q',
+        'user',
+        'action',
+        'entity',
+        'outcome',
+      ])
+        reportFilters[key] = String(
+          form.get(key) ||
+            (['from', 'to'].includes(key) ? reportFilters[key] : ''),
+        );
+      reportFilters.page = 1;
+      adminReport.key = '';
+      render();
+    }
+    if (e.target.id === 'add-language') {
+      e.preventDefault();
+      const form = new FormData(e.target);
+      try {
+        const code = Intl.getCanonicalLocales(
+            String(form.get('code')).trim(),
+          )[0],
+          name = String(form.get('name')).trim();
+        if (!code || !name)
+          throw Error(
+            wx('Enter a language name and code.', 'Dil adı ve kodu gir.'),
+          );
+        if (
+          languages().some((l) => l.code.toLowerCase() === code.toLowerCase())
+        )
+          throw Error(wx('That language already exists.', 'Bu dil zaten var.'));
+        const next = structuredClone(data);
+        next.languages = [...languages(), { code, name }];
+        next.uiOverrides[code] = {};
+        next.fallbackLanguage = 'en';
+        await persist(next, 'languageAdded', code);
+        state.translationLanguage = code;
+        render();
+      } catch (error) {
+        notify(error.message);
+      }
+    }
+    if (e.target.id === 'grant-admin') {
+      e.preventDefault();
+      const id = new FormData(e.target).get('user'),
+        person = PEOPLE.find((p) => p.id === id);
+      if (!person) return;
+      const next = structuredClone(data);
+      next.adminAssignments.push({
+        profileId: id,
+        employeeId: person.employeeId || id,
+      });
+      syncAdmins(next);
+      try {
+        await persist(next, 'adminChanged', id);
+        render();
+      } catch (error) {
+        notify(error.message);
+      }
+    }
+  });
+  onDocument('change', (e) => {
+    if (e.target.matches('[data-ui-language]')) {
+      state.lang = e.target.value;
+      savePrefs();
+      render();
+    }
+    if (e.target.id === 'translation-language') {
+      state.translationPage = 1;
+      state.translationLanguage = e.target.value;
+      render();
+    }
+    if (e.target.id === 'translation-scope') {
+      state.translationPage = 1;
+      state.translationScope = e.target.value;
+      render();
+    }
+    if (e.target.id === 'translation-missing') {
+      state.translationPage = 1;
+      state.translationMissing = e.target.checked;
+      renderTranslationRows();
+    }
+  });
+  onDocument('input', (e) => {
+    if (e.target.id === 'access-search') {
+      state.accessSearch = e.target.value;
+      const input = e.target,
+        start = input.selectionStart;
+      render();
+      const next = $('access-search');
+      next.focus();
+      next.setSelectionRange(start, start);
+    }
+  });
+  onDocument('click', async (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.matches('[data-report-refresh]')) {
+      adminReport.key = '';
+      render();
+    }
+    if (b.matches('[data-report-page]')) {
+      reportFilters.page = Number(b.dataset.reportPage);
+      adminReport.key = '';
+      render();
+    }
+    if (b.matches('[data-clear-report]')) {
+      for (const k of ['q', 'user', 'action', 'entity', 'outcome'])
+        reportFilters[k] = '';
+      reportFilters.page = 1;
+      adminReport.key = '';
+      render();
+    }
+    if (b.matches('[data-save-i18n]')) {
+      const id = b.dataset.saveI18n,
+        entry = translationEntries().find((x) => x.id === id),
+        field = [...document.querySelectorAll('[data-i18n-input]')].find(
+          (x) => x.dataset.i18nInput === id,
+        ),
+        value = field.value.trim(),
+        lang = state.translationLanguage;
+      if (/[<>]/.test(value)) return notify(t('plainTextOnly'));
+      const next = structuredClone(data),
+        parts = id.split(':');
+      if (parts[0] === 'ui') {
+        next.uiOverrides[lang] ??= {};
+        if (value) next.uiOverrides[lang][parts.slice(1).join(':')] = value;
+        else delete next.uiOverrides[lang][parts.slice(1).join(':')];
+      } else if (parts[0] === 'app') {
+        const a = next.apps.find((a) => a.id === parts[1]);
+        a[lang] ??= {};
+        a[lang][parts[2]] = value;
+      } else if (parts[0] === 'web') {
+        const a = [...next.webEntries, next.webPortal].find(
+          (a) => a.id === parts[1],
+        );
+        a[lang] ??= {};
+        a[lang][parts[2]] = value;
+      } else if (parts[0] === 'category')
+        next.categories.find((c) => c.id === parts[1])[lang] = value;
+      else {
+        next.copy[lang] ??= {};
+        next.copy[lang][parts[1]] = value;
+      }
+      b.disabled = true;
+      try {
+        await persist(next, 'translationChanged', id);
+        render();
+      } catch (error) {
+        notify(error.message);
+        b.disabled = false;
+      }
+    }
+  });
+
+  if (location.protocol === 'file:' && isAdmin() && !location.hash) {
+    state.view = 'admin';
+    state.adminTab = 'filters';
+  }
+  render();
+
+  function motionBehavior() {
+    return matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? 'instant'
+      : 'smooth';
+  }
+  function navigateCatalogue(destination, historyEntry = true) {
+    if ($('editDialog').open) {
+      closeEditor();
+      if ($('editDialog').open) return;
+    }
+    if ($('mobileDetail').open) closeDetail();
+    const next = destination === 'web' ? 'web' : 'store';
+    state.view = next;
+    state.account = false;
+    state.mobileMenu = false;
+    state.selected = null;
+    render();
+    const hash = next === 'web' ? '#web-portallar' : '#uygulamalar';
+    if (historyEntry && location.hash !== hash) {
+      try {
+        history.pushState({ catalogue: next }, '', hash);
+      } catch (error) {
+        if (location.protocol !== 'file:') throw error;
+      }
+    }
+    if (next === 'store') {
+      const section = $('application-catalogue');
+      section?.scrollIntoView({ behavior: motionBehavior(), block: 'start' });
+      section?.focus({ preventScroll: true });
+    } else {
+      window.scrollTo({ top: 0, behavior: motionBehavior() });
+      const heading = document.querySelector('.web-intro h1');
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus({ preventScroll: true });
+      }
+    }
+    document.querySelector('main')?.classList.add('destination-enter');
+    setTimeout(
+      () =>
+        document.querySelector('main')?.classList.remove('destination-enter'),
+      350,
+    );
+  }
+  onWindow('popstate', () =>
+    navigateCatalogue(
+      location.hash === '#web-portallar' ? 'web' : 'store',
+      false,
+    ),
+  );
+  function fitEditorTextareas() {
+    document.querySelectorAll('dialog[open] textarea').forEach((field) => {
+      if (field.closest('details:not([open])')) return;
+      field.style.height = 'auto';
+      field.style.height = Math.max(62, field.scrollHeight + 3) + 'px';
+    });
+  }
+  onDocument('input', (e) => {
+    if (e.target.matches('dialog textarea')) fitEditorTextareas();
+  });
+  onDocument(
+    'toggle',
+    (e) => {
+      if (e.target.matches('dialog details') && e.target.open)
+        fitEditorTextareas();
+    },
+    true,
+  );
+  onWindow('resize', fitEditorTextareas);
+  onDocument('pointerdown', (e) => {
+    document
+      .querySelectorAll(
+        '.compact-multi[open],.filter-disclosure[open],.category-disclosure[open]',
+      )
+      .forEach((panel) => {
+        if (
+          !panel.contains(e.target) &&
+          (!panel.matches('.category-disclosure') || innerWidth <= 680)
+        )
+          panel.open = false;
+      });
+    if (state.favoritesOpen && !e.target.closest('.favorites-section')) {
+      state.favoritesOpen = false;
+      const host = document.querySelector('.favorites-section');
+      host?.classList.remove('favorites-open');
+      host
+        ?.querySelector('[data-favorites-toggle]')
+        ?.setAttribute('aria-expanded', 'false');
+    }
+    if (state.mobileMenu && !e.target.closest('.topbar')) {
+      state.mobileMenu = false;
+      document.querySelector('.topbar')?.classList.remove('mobile-menu-open');
+      document
+        .querySelector('[data-mobile-menu]')
+        ?.setAttribute('aria-expanded', 'false');
+    }
+  });
+  onDocument('keydown', (e) => {
+    if (e.key === 'Escape') {
+      state.favoritesOpen = false;
+      document
+        .querySelector('.favorites-section')
+        ?.classList.remove('favorites-open');
+      document
+        .querySelector('[data-favorites-toggle]')
+        ?.setAttribute('aria-expanded', 'false');
+      state.mobileMenu = false;
+      document.querySelector('.topbar')?.classList.remove('mobile-menu-open');
+    }
+  });
+  if (location.hash === '#web-portallar') navigateCatalogue('web', false);
+
+  async function savePersonal(key, id, selected) {
+    acceptServer(
+      await bridge.request('/api/experience/personal', { key, id, selected }),
+    );
+  }
+
+  onDocument(
+    'change',
+    async (e) => {
+      if (e.target.name === 'resourceDelivery') {
+        updateDelivery(e.target.closest('[data-resource-row]'));
+        refreshPrivatePreview();
+        return;
+      }
+      if (!e.target.matches('[data-apk-upload]')) return;
+      e.stopImmediatePropagation();
+      const row = e.target.closest('[data-resource-row]'),
+        status = row.querySelector('.apk-status'),
+        file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 100 * 1024 * 1024) {
+        status.textContent = wx(
+          'Choose a file up to 100 MB.',
+          'En fazla 100 MB dosya seç.',
+        );
+        e.target.value = '';
+        return;
+      }
+      const submit = $('editor-form').querySelector('[type=submit]');
+      submit.disabled = true;
+      e.target.disabled = true;
+      status.textContent = wx('Uploading…', 'Yükleniyor…');
+      try {
+        const value = await bridge.upload(file);
+        row.querySelector('[name=resourceUrl]').value = value.url;
+        row.querySelector('[name=resourcePending]').checked = false;
+        row.querySelector('[name=resourcePlatform]').value = 'Android';
+        status.textContent =
+          value.fileName + ' · ' + wx('Ready to save', 'Kaydetmeye hazır');
+        refreshPrivatePreview();
+      } catch (error) {
+        status.textContent = error.message;
+        e.target.value = '';
+      } finally {
+        submit.disabled = false;
+        e.target.disabled = false;
+      }
+    },
+    true,
+  );
+
+  onDocument('click', (e) => {
+    const button = e.target.closest('[data-translation-page]');
+    if (!button || button.disabled) return;
+    const page = Number(button.dataset.translationPage);
+    if (page === state.translationPage) return;
+    state.translationPage = page;
+    renderTranslationRows();
+    const rows = $('translation-rows');
+    rows.tabIndex = -1;
+    rows.focus({ preventScroll: true });
+    rows.scrollIntoView({ block: 'start' });
+  });
+
+  onDocument('change', handleAdminDateSort);
+  return () => {
+    abort.abort();
+    timers.forEach(window.clearInterval);
+  };
+};

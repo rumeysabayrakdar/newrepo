@@ -1,4 +1,3 @@
-# Adapted from the uploaded file named download.
 .git
 .github
 .openai
@@ -18,5 +17,7 @@ node_modules
 tests
 attachments
 work
-
 .secrets
+
+frontend
+downloads

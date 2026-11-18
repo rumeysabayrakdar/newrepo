@@ -117,6 +117,7 @@ foreach(var collection in new[]{"links","documents"})
 }
 // Approved UI endpoints reuse the existing identity/origin gate and PostgreSQL store.
 string? Persona(HttpContext c)=>c.Request.Headers["X-Test-Persona"].FirstOrDefault();
+api.MapGet("/experience/report",async(HttpContext c,AppStoreDatabase db)=>Results.Json(await db.ExperienceReport(User(c),Persona(c),c.Request.Query)));
 api.MapGet("/experience",async(HttpContext c,AppStoreDatabase db)=>Results.Json(await db.ReadExperience(User(c),Persona(c))));
 api.MapPost("/experience/admin",async(HttpContext c,AppStoreDatabase db,JsonObject body)=>{await db.SaveExperience(User(c),Persona(c),body,c.TraceIdentifier);return Results.Json(await db.ReadExperience(User(c),Persona(c)));});
 api.MapPost("/experience/personal",async(HttpContext c,AppStoreDatabase db,JsonObject body)=>{await db.ChangePersonal(User(c),Persona(c),body);return Results.Json(await db.ReadExperience(User(c),Persona(c)));});

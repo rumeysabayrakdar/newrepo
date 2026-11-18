@@ -1,11 +1,9 @@
-# Verification — six requested fixes
+# Verification — 18 November 2026
 
-- .NET 10 Alpine Release publish succeeded with networking disabled and the bundled Npgsql package feed.
-- Actual Test and Production-mode services used separate isolated PostgreSQL databases. Test accepted its sample account without any gateway identity even with a stale Gateway override. Production ignored a TestProfiles override, rejected Test identities and accepted only the simulated trusted-gateway identity.
-- React DOM tests verified no TEST badge or preview-account element in Production, including stale browser Test session values.
-- Desktop category navigation was visible on the first render and remained open after outside clicks and web/back navigation.
-- PostgreSQL favourites persisted across fresh clients. Selected SVG stars filled in both light and dark states; rejection left state unchanged, and retry succeeded.
-- Web cards share application-style cover/name/badge/favourite markup. The uploaded images, files and APK endpoints are retained.
-- The browser-local Sites preview workflow still passes. Preview data is separate from PostgreSQL.
+- .NET 10 Alpine Release publish passed using the bundled offline Npgsql package feed, with networking disabled during compilation.
+- tests/admin-upgrade.cjs passed against an isolated real .NET/PostgreSQL service and fresh disposable database. Verified zero initial metrics; two repeated download requests and two web/portal opens counted correctly; blocked attempts excluded; 70 stored search events paged 50 + 20 without duplicate IDs; user/action/text/result/date filters; SQL-like search handled as data; non-Admin report access denied.
+- The same test passed React DOM flows for Spanish interface/application content, English fallback, database-backed dashboard, log search, German language registration and saved translations, registered-user access selection, and optional Test scenario fields. Italian and Polish registry entries persisted; a Polish comment was accepted.
+- tests/html-review.cjs passed: self-contained local HTML boots without a backend, starts with zero browser-local figures and registers an additional language.
+- JavaScript syntax and React build passed. The previously verified Test/Production protections remain in source; they were not reconfigured in live Norm.
 
-Live Norm access settings, live Okta sign-in and native visual browser QA were not available to verify. The Production identity tests used only synthetic fixture identities from a configured private test gateway. They do not establish a live Okta connection. Existing Norm databases were not accessed or reset.
+These checks use synthetic fixture data in isolated databases. Native visual browser QA, live Norm deployment, real Okta and external installation completion were not verified. No live Norm database was accessed, modified or reset.

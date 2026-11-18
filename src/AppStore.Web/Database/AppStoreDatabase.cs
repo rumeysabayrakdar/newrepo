@@ -72,6 +72,7 @@ public sealed partial class AppStoreDatabase : IAsyncDisposable
         // Add newly introduced UI keys to existing catalogue JSONB without replacing admin edits.
         await EnsureTranslationKeys();
         await InitializeExperience();
+        await EnsureLanguages();
     }
     private async Task EnsureTranslationKeys()
     {

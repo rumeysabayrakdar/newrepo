@@ -51,3 +51,10 @@ CREATE TABLE IF NOT EXISTS appstore.experience_files (
  id uuid PRIMARY KEY,file_name text NOT NULL,content_type text NOT NULL,content bytea NOT NULL,
  uploaded_by text NOT NULL,created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Additive indexes for date/user/action log queries.
+CREATE INDEX IF NOT EXISTS action_logs_time_id ON appstore.action_logs(occurred_at DESC,id DESC);
+CREATE INDEX IF NOT EXISTS admin_logs_time_id ON appstore.admin_audit_logs(occurred_at DESC,id DESC);
+CREATE INDEX IF NOT EXISTS action_logs_actor_time ON appstore.action_logs(actor_id,occurred_at DESC);
+CREATE INDEX IF NOT EXISTS admin_logs_actor_time ON appstore.admin_audit_logs(actor_id,occurred_at DESC);
+CREATE INDEX IF NOT EXISTS action_logs_action_time ON appstore.action_logs(action,occurred_at DESC);

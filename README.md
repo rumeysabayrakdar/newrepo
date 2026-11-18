@@ -1,6 +1,6 @@
 # Arçelik App Store — OneProject fixes
 
-.NET 10 + React + PostgreSQL/Npgsql. Read START-HERE.md for upload steps and CHANGES.md for the six requested corrections.
+.NET 10 + React + PostgreSQL/Npgsql. Read START-HERE.md for the single HTML review and one-time backend upload steps. CHANGES.md describes the current admin, analytics, language and layout update.
 
 AppStore:Environment in base appsettings.json is the sole Test/Production switch. Test locks Authentication:Mode to TestProfiles; Production locks it to Gateway, independent of stale hosting overrides. Test accounts do not exist as Production sign-in options. Real Okta is handled by Norm's protected gateway, not a separate application login page.
 
@@ -11,3 +11,5 @@ Built React assets/fonts and the pinned Npgsql package are included. NuGet.Confi
 The corrected Test public origin is https://appstore-x.norm.ar.arcelik, matching the screenshot. If Norm saves an older Hosting__TrustedPublicOrigin in Env, update it as START-HERE.md describes. Cross-site/wrong-origin requests remain rejected.
 
 Live framework checks use tests/review-fixes.cjs against isolated .NET/PostgreSQL services on ports 18088 and 18091. They write only synthetic fixture data. See CHANGES.md for the checks actually performed. Full live Norm deployment, external APK installation and real Okta sign-in are not verified from this workspace.
+
+Admin reporting uses PostgreSQL action/audit logs with date/search/filter/paging. Additional languages are registered in experience_state and fall back to English; they are not restricted to EN/TR. Run tests/admin-upgrade.cjs against a fresh isolated Test database, and tests/html-review.cjs for the offline HTML. Build that HTML with python scripts/build-html.py.

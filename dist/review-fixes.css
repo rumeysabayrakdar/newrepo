@@ -20,3 +20,34 @@
 .web-app-card>.quick{position:absolute;bottom:8px;right:12px;}
 @media(max-width:1050px){#web-directory-grid:has(.web-app-card){grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:600px){#web-directory-grid:has(.web-app-card){grid-template-columns:1fr;}}
+/* Compact adjacent controls: favourite then edit, independent hit areas. */
+.appcard>.social-actions{right:42px!important;top:12px!important;}
+.appcard>.social-actions button{width:28px!important;height:28px!important;}
+.appcard>.quick,.appcard>.card-edit{right:10px!important;top:12px!important;width:28px!important;height:28px!important;bottom:auto!important;}
+.web-app-card .web-card-open{padding-right:82px!important;}
+.workplace-options .workplace-node .workplace-sketch{width:min(100%,150px);height:auto!important;aspect-ratio:17/10;translate:none!important;margin:8px auto 0;}
+.workplace-options .workplace-sketch svg{width:100%!important;height:100%!important;max-height:none!important;aspect-ratio:17/10;object-fit:contain;}
+.language-select{max-width:180px;min-height:36px;padding:6px 10px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;font:inherit;}
+.report-filters,.translation-controls,.language-add{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin:18px 0;padding:16px;background:var(--soft);border:1px solid var(--line);border-radius:16px;}
+.report-filters label,.translation-controls label,.language-add label{display:grid;gap:6px;font-size:12px;flex:1 1 150px;}
+.report-filters input,.report-filters select,.translation-controls input,.translation-controls select,.language-add input,.language-add select,#access-search{width:100%;min-height:40px;max-width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);font:inherit;}
+.report-search{flex-basis:100%!important;}
+.report-origin{font-size:12px;color:var(--muted);margin:12px 0;}
+.report-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px;}
+.report-table{border-collapse:collapse;width:100%;min-width:640px;font-size:12px;}
+.report-table th,.report-table td{padding:13px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;}
+.report-table small,.translation-editor small,.access-summary span,.access-card span{display:block;color:var(--muted);font-size:11px;margin-top:5px;overflow-wrap:anywhere;}
+.report-pages{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-top:16px;}
+.report-rank{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);}
+.report-percentage{font-size:40px;display:block;margin-top:20px;}
+.translation-editor{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) auto;gap:16px;align-items:center;padding:18px 0;border-bottom:1px solid var(--line);}
+.translation-editor p{font-size:12px;color:var(--muted);white-space:pre-wrap;}
+.translation-editor textarea{width:100%;min-height:80px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--surface);color:var(--ink);font:inherit;}
+.access-summary,.access-card{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:18px;}
+.test-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0;}
+.access-card .btn{margin-top:14px;}
+@media(max-width:700px){.translation-editor{grid-template-columns:1fr;}.test-profile-grid{grid-template-columns:1fr;}.language-select{max-width:150px;}.report-filters label{flex-basis:100%;}}
+.web-tool-shell>.social-actions,.portal-photo-card>.social-actions{position:absolute;right:42px!important;top:12px!important;}
+.web-tool-shell>.social-actions button,.portal-photo-card>.social-actions button{width:28px!important;height:28px!important;}
+.web-tool-shell>.quick,.portal-photo-card>.quick{position:absolute;right:10px!important;top:12px!important;width:28px!important;height:28px!important;bottom:auto!important;}
+.appcard:not(:has(>.quick,>.card-edit))>.social-actions,.web-tool-shell:not(:has(>.quick))>.social-actions,.portal-photo-card:not(:has(>.quick))>.social-actions{right:10px!important;}

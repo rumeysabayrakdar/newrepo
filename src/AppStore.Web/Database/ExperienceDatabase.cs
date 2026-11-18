@@ -101,14 +101,14 @@ public sealed partial class AppStoreDatabase
     {
         await using var c=await source.OpenConnectionAsync();await using var tx=await c.BeginTransactionAsync();var(legacy,_)=await Load(c,tx,true);var(current,rev)=await ExperienceLoad(c,tx,true);var(_,admin,_)=ExperienceIdentity(actor,legacy,current,persona);
         if(!admin)throw Error(403,"admin_required","Admin access is required.");if(command["revision"]?.GetValue<long>()!=rev)throw Error(409,"save_conflict","Someone else saved a change. Reload before saving again.");
-        var next=Obj(command["data"]).DeepClone().AsObject();ValidateExperience(next);
+        var next=Obj(command["data"]).DeepClone().AsObject();next["languages"]??=Languages(current).DeepClone();ValidateExperience(next);ValidateLanguages(next);
         if(environment!="Test"&&Arr(next["testProfiles"]).Count>0)throw Error(403,"test_only","TEST profiles cannot be used in Production.");
         var admins=Strings(next["admins"]);if(admins.Length==0||!admins.Contains(actor.Id))throw Error(409,"own_admin_protected","Keep your own Admin access and at least one Admin.");foreach(var id in admins)if(!await UserExists(c,tx,id))throw Error(400,"unknown_employee","Select a registered employee.");
         // Comments are owned by the comment endpoint; admin may only feature existing ones.
         foreach(var a in Arr(next["apps"]).OfType<JsonObject>()){var old=Arr(current["apps"]).OfType<JsonObject>().FirstOrDefault(x=>Text(x,"id")==Text(a,"id"));a["comments"]=old?["comments"]?.DeepClone()??new JsonArray();}
         next.Remove("audit");next.Remove("activity");next.Remove("feedback");next.Remove("admins");next.Remove("adminAssignments");
         legacy["admins"]=Array(admins);await using(var cmd=new NpgsqlCommand("UPDATE appstore.catalogue_state SET payload=@p,revision=revision+1 WHERE id=1",c,tx)){cmd.Parameters.AddWithValue("p",NpgsqlDbType.Jsonb,legacy.ToJsonString());await cmd.ExecuteNonQueryAsync();}
-        await StoreExperience(c,tx,next);await WriteEvent(c,tx,actor,"admin",Text(command,"action"),Text(command,"entity"),correlation,null,null);await tx.CommitAsync();
+        await StoreExperience(c,tx,next);await WriteEvent(c,tx,actor,"admin",Text(command,"action"),Text(command,"entity"),correlation,null,new JsonObject{["changedSections"]=new JsonArray(next.Where(k=>k.Value?.ToJsonString()!=current[k.Key]?.ToJsonString()).Select(k=>(JsonNode?)JsonValue.Create(k.Key)).ToArray()),["revision"]=rev+1});await tx.CommitAsync();
     }
     static void ValidateExperience(JsonObject model)
     {
@@ -134,16 +134,42 @@ public sealed partial class AppStoreDatabase
     }
     public async Task ExperienceComment(AppUser actor,string? persona,JsonObject body,string correlation)
     {
-        var text=Text(body,"text").Trim();var lang=Text(body,"language");if(text.Length is <1 or >300||lang is not ("en" or "tr"))throw Error(400,"invalid_comment","Write a comment up to 300 characters.");
-        await using var c=await source.OpenConnectionAsync();await using var tx=await c.BeginTransactionAsync();var(legacy,_)=await Load(c,tx,false);var(model,_)=await ExperienceLoad(c,tx,true);var(profile,_,_)=ExperienceIdentity(actor,legacy,model,persona);var a=Arr(model["apps"]).OfType<JsonObject>().FirstOrDefault(a=>Text(a,"id")==Text(body,"appId")&&ExperienceActive(a));if(a is null||!ExperienceVisible(a,profile)||Strings(a["platforms"]).All(x=>x=="Web"))throw Error(403,"comment_not_allowed","Comments are not available here.");a["comments"]??=new JsonArray();a["comments"]!.AsArray().Add(new JsonObject{["id"]="comment-"+Guid.NewGuid().ToString("N"),["author"]=Text(profile,"name"),["time"]=DateTimeOffset.UtcNow.ToString("O"),["language"]=lang,["text"]=new JsonObject{[lang]=text}});await StoreExperience(c,tx,model);await WriteEvent(c,tx,actor,"user","commentAdded",Text(body,"appId"),correlation,null,null);await tx.CommitAsync();
+        var text=Text(body,"text").Trim();var lang=Text(body,"language");if(text.Length is <1 or >300||lang.Length>64)throw Error(400,"invalid_comment","Write a comment up to 300 characters.");
+        await using var c=await source.OpenConnectionAsync();await using var tx=await c.BeginTransactionAsync();var(legacy,_)=await Load(c,tx,false);var(model,_)=await ExperienceLoad(c,tx,true);var(profile,_,_)=ExperienceIdentity(actor,legacy,model,persona);if(!KnownLanguage(model,lang))throw Error(400,"invalid_language","Choose a registered language.");var a=Arr(model["apps"]).OfType<JsonObject>().FirstOrDefault(a=>Text(a,"id")==Text(body,"appId")&&ExperienceActive(a));if(a is null||!ExperienceVisible(a,profile)||Strings(a["platforms"]).All(x=>x=="Web"))throw Error(403,"comment_not_allowed","Comments are not available here.");a["comments"]??=new JsonArray();a["comments"]!.AsArray().Add(new JsonObject{["id"]="comment-"+Guid.NewGuid().ToString("N"),["author"]=Text(profile,"name"),["time"]=DateTimeOffset.UtcNow.ToString("O"),["language"]=lang,["text"]=new JsonObject{[lang]=text}});await StoreExperience(c,tx,model);await WriteEvent(c,tx,actor,"user","commentAdded",Text(body,"appId"),correlation,null,null);await tx.CommitAsync();
     }
     public async Task ExperienceFeedback(AppUser actor,JsonObject body,string correlation)
     {var topic=Text(body,"topic");var message=Text(body,"message").Trim();if(topic.Length is <1 or >100||message.Length is <1 or >2000)throw Error(400,"invalid_feedback","Enter a topic and message (up to 2000 characters).");await using var c=await source.OpenConnectionAsync();await using var tx=await c.BeginTransactionAsync();await using var cmd=new NpgsqlCommand("INSERT INTO appstore.feedback(id,user_id,topic,message) VALUES(@id,@u,@t,@m)",c,tx);cmd.Parameters.AddWithValue("id",Guid.NewGuid());cmd.Parameters.AddWithValue("u",actor.Id);cmd.Parameters.AddWithValue("t",topic);cmd.Parameters.AddWithValue("m",message);await cmd.ExecuteNonQueryAsync();await WriteEvent(c,tx,actor,"user","feedbackReceived",topic,correlation,null,null);await tx.CommitAsync();}
     public async Task<string> ExperienceOpen(AppUser actor,string? persona,string resource,string? kind,string? linkId,string correlation)
     {
-        await using var c=await source.OpenConnectionAsync();await using var tx=await c.BeginTransactionAsync();var(legacy,_)=await Load(c,tx,false);var(model,_)=await ExperienceLoad(c,tx);var(profile,admin,_)=ExperienceIdentity(actor,legacy,model,persona);string url="";
-        if(resource.StartsWith("app:")){var a=Arr(model["apps"]).OfType<JsonObject>().SingleOrDefault(x=>Text(x,"id")==resource[4..]&&ExperienceActive(x))??throw Error(404,"app_missing","Application unavailable.");if(!ExperienceVisible(a,profile))throw Error(403,"not_eligible","This application is not available for this profile.");if(string.IsNullOrEmpty(linkId))url=Text(a,"url");else{var l=Arr(a[kind=="document"?"documents":"links"]).OfType<JsonObject>().SingleOrDefault(x=>Text(x,"id")==linkId&&!Flag(x,"pending"))??throw Error(404,"link_missing","Link unavailable.");url=Text(l,"url");}}
-        else {var id=resource.StartsWith("web:")?resource[4..]:resource;var r=id=="behome"?Obj(model["webPortal"]):Arr(model["webEntries"]).OfType<JsonObject>().SingleOrDefault(x=>Text(x,"id")==id)??throw Error(404,"web_missing","Website unavailable.");if(!ExperienceVisible(r,profile))throw Error(403,"not_eligible","This tool is not available for this profile.");url=Text(r,"url");}
-        if(!SafeUrl(url)&&!IsExperienceFile(url)&&!(url.StartsWith("apk:")&&Guid.TryParse(url[4..],out _))&&!(kind=="document"&&url=="guide.html"))throw Error(400,"invalid_url","This link is not ready.");await WriteEvent(c,tx,actor,"user","activityOpen",resource,correlation,null,new JsonObject{["outcome"]="linkOpened"});await tx.CommitAsync();return url;
+        if(resource.Length>200||(linkId?.Length??0)>128)throw Error(400,"invalid_resource","Invalid resource.");
+        await using var c=await source.OpenConnectionAsync();await using var tx=await c.BeginTransactionAsync();
+        var(legacy,_)=await Load(c,tx,false);var(model,_)=await ExperienceLoad(c,tx);var(profile,_,_)=ExperienceIdentity(actor,legacy,model,persona);
+        string url="",resourceType=resource.StartsWith("app:")?"download":"web";
+        try
+        {
+            if(resource.StartsWith("app:"))
+            {
+                var app=Arr(model["apps"]).OfType<JsonObject>().SingleOrDefault(x=>Text(x,"id")==resource[4..]&&ExperienceActive(x))??throw Error(404,"app_missing","Application unavailable.");
+                resourceType=kind=="document"?"document":Strings(app["platforms"]).All(p=>p=="Web")?"web":"download";
+                if(!ExperienceVisible(app,profile))throw Error(403,"not_eligible","This application is unavailable for this account.");
+                if(string.IsNullOrEmpty(linkId))url=Text(app,"url");
+                else{var link=Arr(app[kind=="document"?"documents":"links"]).OfType<JsonObject>().SingleOrDefault(x=>Text(x,"id")==linkId&&!Flag(x,"pending"))??throw Error(404,"link_missing","Link unavailable.");url=Text(link,"url");}
+            }
+            else
+            {
+                var id=resource.StartsWith("web:")?resource[4..]:resource;resourceType=id=="behome"?"portal":"web";
+                var item=id=="behome"?Obj(model["webPortal"]):Arr(model["webEntries"]).OfType<JsonObject>().SingleOrDefault(x=>Text(x,"id")==id)??throw Error(404,"web_missing","Website unavailable.");
+                if(!ExperienceVisible(item,profile))throw Error(403,"not_eligible","This tool is unavailable for this account.");url=Text(item,"url");
+            }
+            if(!SafeUrl(url)&&!IsExperienceFile(url)&&!(url.StartsWith("apk:")&&Guid.TryParse(url[4..],out _))&&!(kind=="document"&&url=="guide.html"))throw Error(400,"invalid_url","This link is not ready.");
+            if(url.StartsWith("apk:"))
+            {await using var check=new NpgsqlCommand("SELECT EXISTS(SELECT 1 FROM appstore.apk_packages WHERE id=@id)",c,tx);check.Parameters.AddWithValue("id",Guid.Parse(url[4..]));if(!(bool)(await check.ExecuteScalarAsync())!)throw Error(404,"apk_missing","APK unavailable.");}
+            await WriteEvent(c,tx,actor,"user","activityOpen",resource,correlation,null,new JsonObject{["outcome"]=url.StartsWith("apk:")?"file_requested":"redirect_issued",["resourceType"]=resourceType,["applicationId"]=resource,["linkId"]=linkId??"",["statusCode"]=url.StartsWith("apk:")?200:302});
+            await tx.CommitAsync();return url;
+        }
+        catch(GateException error)
+        {
+            await WriteEvent(c,tx,actor,"user","activityOpen",resource,correlation,null,new JsonObject{["outcome"]="blocked",["resourceType"]=resourceType,["statusCode"]=error.Status,["reason"]=error.Code,["applicationId"]=resource,["linkId"]=linkId??""});await tx.CommitAsync();throw;
+        }
     }
 }

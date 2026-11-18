@@ -1,29 +1,13 @@
-# Arçelik App Store — Norm TEST package
+# Arçelik App Store — OneProject fixes
 
-Start with [START-HERE.md](START-HERE.md). Upload the ZIP root as a .NET backend project on port 8080.
+.NET 10 + React + PostgreSQL/Npgsql. Read START-HERE.md for upload steps and CHANGES.md for the six requested corrections.
 
-Runtime: .NET 10, React frontend and PostgreSQL 17 via Npgsql 10.0.3. There is no Python, Node server or TypeORM. The uploaded approved interface, images and fonts are retained. Node/Babel/jsdom are optional development tools, not deployment runtime dependencies.
+AppStore:Environment in base appsettings.json is the sole Test/Production switch. Test locks Authentication:Mode to TestProfiles; Production locks it to Gateway, independent of stale hosting overrides. Test accounts do not exist as Production sign-in options. Real Okta is handled by Norm's protected gateway, not a separate application login page.
 
-The frontend is already built. NuGet.Config points at the included vendor/nuget package feed; publish was verified with networking disabled and an empty package cache. The .NET SDK/runtime and PostgreSQL container images are still supplied by the host/registry, not embedded in the ZIP. The Dockerfile retains your Norm registry mirrors.
+Database connections can be environment-specific (ConnectionStrings:Test / Production) or supplied by Norm as an AppStore connection or PostgreSQL variables. Blank expected names follow the supplied connection; an explicit name remains validated. Separate database markers reject cross-environment reuse. Startup applies additive schema and seed/bootstrap operations without erasing saved application content. Favourites use appstore.user_preferences, keyed by signed-in account, not localStorage.
 
-## Database connection
+Built React assets/fonts and the pinned Npgsql package are included. NuGet.Config uses vendor/nuget for offline package restore; container SDK/runtime images are provided by the host's registry. No Node/Python backend or TypeORM is used. npm ci and npm run build are development tools only.
 
-The single discoverable connection template is src/AppStore.Web/appsettings.json. Norm can replace it with the project's actual private connection during upload. A blank Database:Name follows the selected connection's database instead of an old project's hard-coded name. An explicitly configured expected name is still enforced, and database environment markers prevent Test/Production reuse.
+The corrected Test public origin is https://appstore-x.norm.ar.arcelik, matching the screenshot. If Norm saves an older Hosting__TrustedPublicOrigin in Env, update it as START-HERE.md describes. Cross-site/wrong-origin requests remain rejected.
 
-Supported hosting inputs: ConnectionStrings__AppStore, POSTGRES_CONNECTION_STRING, DATABASE_URL, standard connection aliases or a complete POSTGRES_HOST/POSTGRES_DB/POSTGRES_USER set. A supplied connection takes precedence over the bundled template. Passwords may be in the hosting secret connection, POSTGRES_PASSWORD, Database__PasswordFile or POSTGRES_PASSWORD_FILE. PostgreSQL URL TLS settings are preserved. Unknown URL options fail rather than silently dropping connection settings.
-
-Startup applies the embedded additive schema and initializes the catalogue and experience model once. There is no browser-local data fallback. PostgreSQL stores shared edits, favourites, comments, feedback and activity. Local storage is used only for UI preferences. Existing saved experience content is retained. Test and Production start with the same six approved catalogue definitions; Test-only extra demonstration portal/profile content remains as supplied in the uploaded experience.
-
-## Environment
-
-AppStore:Environment in the base appsettings.json selects Test or Production. Environment variables cannot switch it. Production rejects missing trusted gateway networks, requires verified identity and must use a separate database. The supplied production Compose selector exists, but real gateway ranges/admin IDs/Production origin are intentionally not fabricated.
-
-## Build and tests
-
-Frontend edits: npm ci, npm run build. The deployed app does not run npm.
-
-.NET publish: dotnet publish src/AppStore.Web/AppStore.Web.csproj -c Release. NuGet restore uses the bundled pinned package.
-
-A Compose host can run docker compose up --build -d to create the Test app, PostgreSQL, persistent volumes and generated private password. This does not imply Norm runs Compose automatically; its Dockerfile-only workflow must attach PostgreSQL infrastructure.
-
-Tests and practical verification limits are in TESTING.md and VALIDATION.md. Historical planning files in docs are reference documents, not instructions to reinstate superseded deployment settings. Dashboard sample numbers and pending external/Okta integrations remain as labelled in the supplied UI.
+Live framework checks use tests/review-fixes.cjs against isolated .NET/PostgreSQL services on ports 18088 and 18091. They write only synthetic fixture data. See CHANGES.md for the checks actually performed. Full live Norm deployment, external APK installation and real Okta sign-in are not verified from this workspace.

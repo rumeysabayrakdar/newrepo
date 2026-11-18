@@ -20,12 +20,12 @@ public sealed partial class AppStoreDatabase : IAsyncDisposable
         var (cs, databaseName) = DatabaseConnection.Resolve(config);
         expectedDatabase = databaseName;
         var passwordFile = config["Database:PasswordFile"];
-        if(string.IsNullOrWhiteSpace(passwordFile)) passwordFile = config["POSTGRES_PASSWORD_FILE"];
+        if(string.IsNullOrWhiteSpace(passwordFile))passwordFile=config["POSTGRES_PASSWORD_FILE"];
         if (!string.IsNullOrEmpty(passwordFile)) cs.Password = File.ReadAllText(passwordFile).Trim();
         source = NpgsqlDataSource.Create(cs.ConnectionString);
         var document = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "catalogue-seed.json")))!.AsObject();
         seed = document["state"]!.AsObject();
-        People = environment == "Test" ? config.GetSection("Authentication:TestUsers").GetChildren().Select(u=>new AppUser(u["Id"]!,u["Name"]!)).ToArray() : [];
+        People = environment == "Test" && config["Authentication:Mode"] == "TestProfiles" ? config.GetSection("Authentication:TestUsers").GetChildren().Select(u=>new AppUser(u["Id"]!,u["Name"]!)).ToArray() : [];
 
     }
     public async Task Initialize()
@@ -50,13 +50,23 @@ public sealed partial class AppStoreDatabase : IAsyncDisposable
         await using (var mark = new NpgsqlCommand("INSERT INTO appstore.metadata(key,value) VALUES ('environment',@environment),('schema_version','2') ON CONFLICT DO NOTHING", connection, tx))
         { mark.Parameters.AddWithValue("environment", environment); await mark.ExecuteNonQueryAsync(); }
         var initial = (JsonObject)seed.DeepClone(); initial.Remove("events"); initial.Remove("_revision");
-        // User-approved inventory is shared by both environments; identities and
-        // databases remain separate. Existing catalogue rows are never overwritten.
-        initial["admins"] = environment == "Test" ? Array(config.GetSection("Authentication:TestAdminIds").Get<string[]>() ?? []) : new JsonArray();
+        // Starter listings are for Test only. Existing catalogue rows are never overwritten.
+        if (environment == "Production") initial["apps"] = new JsonArray();
+        initial["admins"] = environment == "Test" && config["Authentication:Mode"] == "TestProfiles" ? Array(config.GetSection("Authentication:TestAdminIds").Get<string[]>() ?? []) : new JsonArray();
         await using var insert = new NpgsqlCommand("INSERT INTO appstore.catalogue_state(id,payload) VALUES (1,@data) ON CONFLICT DO NOTHING", connection, tx);
         insert.Parameters.AddWithValue("data", NpgsqlDbType.Jsonb, initial.ToJsonString());
         await insert.ExecuteNonQueryAsync();
         foreach (var user in People) await Register(connection, tx, user);
+        if(environment=="Test"&&config["Authentication:Mode"]=="TestProfiles")
+        {
+            var (testState,_)=await Load(connection,tx,true);
+            if(Strings(testState["admins"]).Length==0)
+            {
+                testState["admins"]=Array((config.GetSection("Authentication:TestAdminIds").Get<string[]>()??[]).Where(id=>People.Any(p=>p.Id==id)));
+                await using var grant=new NpgsqlCommand("UPDATE appstore.catalogue_state SET payload=@p,revision=revision+1 WHERE id=1",connection,tx);
+                grant.Parameters.AddWithValue("p",NpgsqlDbType.Jsonb,testState.ToJsonString());await grant.ExecuteNonQueryAsync();
+            }
+        }
         await tx.CommitAsync();
         await UpgradeLegacy();
         // Add newly introduced UI keys to existing catalogue JSONB without replacing admin edits.
@@ -104,7 +114,7 @@ public sealed partial class AppStoreDatabase : IAsyncDisposable
         await using var connection=await source.OpenConnectionAsync();await using var tx=await connection.BeginTransactionAsync();
         await Register(connection,tx,user);
         var initial=config.GetSection("Authentication:InitialAdminEmployeeIds").Get<string[]>()??[];
-        if(environment=="Production"&&initial.Contains(user.Id))
+        if(config["Authentication:Mode"]=="Gateway"&&initial.Contains(user.Id))
         {
             var(state,revision)=await Load(connection,tx,true);
             var bootstrapped=await new NpgsqlCommand("SELECT 1 FROM appstore.metadata WHERE key='bootstrap:'||@id",connection,tx){Parameters={new("id",user.Id)}}.ExecuteScalarAsync();

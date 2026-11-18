@@ -1,3 +1,14 @@
-# Norm TEST packaging update — 16 November 2026
+# Release 3.4 — 18 November 2026
 
-Retains the provided interface and experience model. Adds a discoverable Norm connection template, platform-setting precedence, automatic database-name resolution, password-file support and transient database-startup retries. Bundles the pinned PostgreSQL driver for offline NuGet restore. Supplies the missing optional Production Compose selector. Converts API verification to JavaScript and excludes obsolete/Python files from the delivery archive. See VALIDATION.md for executed checks and platform limits.
+Single-project TEST-selected package with the approved HTML review 32 integrated into the React / .NET / PostgreSQL application.
+
+- Trusted gateway CIDR checks and settings removed from request handling and Production startup. Norm still authenticates Okta, forwards validated identity and prevents header spoofing/bypass. Read START-HERE.md.
+- Compact cards/details, grid/compare only, hamburger-only mobile header, no mobile administration, red round profile avatar, compact web workspace hierarchy.
+- Three-section editor, one 150-character description, closed multi-selects, multiple image/document upload to PostgreSQL (10 MB each), APK upload retained (100 MB).
+- Company/country/mail-group targeting stored and enforced server-side. Norm maps the corresponding Okta fields into configurable headers.
+- Feedback reaches the desktop administrator inbox. Shared state does not rely on preview local storage.
+- All three documents updated to v3.4. Additive SQL included. No credentials, user DB export, actual installable APK or synthetic smoke-upload fixtures are bundled.
+
+Passed focused local Node/.NET/PostgreSQL checks: real React render/save, favourites, comments, feedback, employee write denial, Gateway without CIDR, invalid identity rejection, document upload/download and company/group access, APK browser attachment download. Norm deployment, real Okta mapping and pixel/device/load acceptance were not performed here.
+
+The same source runs Test or Production through AppStore:Environment in appsettings.json. Default Authentication:Mode is Gateway. Separate per-environment PostgreSQL connections and the matching public origin must be configured by Norm. TestProfiles is explicit Test-only, never a Production login mode.

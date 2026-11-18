@@ -42,3 +42,12 @@ CREATE TABLE IF NOT EXISTS appstore.feedback (
  id uuid PRIMARY KEY, user_id text NOT NULL, topic text NOT NULL,
  message text NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS appstore.apk_packages (
+ id uuid PRIMARY KEY, file_name text NOT NULL, content bytea NOT NULL,
+ uploaded_by text NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS appstore.experience_files (
+ id uuid PRIMARY KEY,file_name text NOT NULL,content_type text NOT NULL,content bytea NOT NULL,
+ uploaded_by text NOT NULL,created_at timestamptz NOT NULL DEFAULT now()
+);

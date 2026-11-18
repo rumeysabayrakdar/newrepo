@@ -6,4 +6,4 @@
 
 Arçelik branding appears as the subject of this recreation. This demo is not a claim of official production deployment or ownership of that brand.
 
-Npgsql 10.0.3 is bundled as a NuGet package under its PostgreSQL license. See licenses/Npgsql-LICENSE.
+Npgsql 10.0.3 is included under the PostgreSQL license; see licenses/Npgsql-LICENSE.

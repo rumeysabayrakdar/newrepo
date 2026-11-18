@@ -1,11 +1,7 @@
-# Verification
+# Release 3.4 checks
 
-Run npm ci and npm run build for frontend changes. With an isolated .NET/PostgreSQL Test service on port 18088, run npm test for the API and live React DOM workflow. Override TEST_URL and TEST_ORIGIN for another isolated test service. These suites write synthetic test records; never run them against live employee data.
+18 November 2026: Node/Babel build and .NET build passed. Local isolated PostgreSQL checks passed for React bootstrap, catalogue save, persisted favourites, shared comment, feedback receipt/inbox, employee write rejection, Gateway headers without any CIDR setting, missing/invalid identity rejection, image/document API upload permissions, PDF bytes and download eligibility, company/mail-group targeting and APK attachment download.
 
-- tests/experience-api.cjs: feedback persistence, origin checks, revision conflicts, redirects and uploaded Test persona permissions.
-- tests/experience-live.cjs: actual React rendering, shared Admin edit, saved favourite, shared comment and Employee write denial against .NET/PostgreSQL.
-- tests/norm-deployment.cjs: injected URLs/Npgsql connections and replaced JSON with a generated database name; explicit mismatch and Test/Production database isolation. Requires the documented development Docker fixture; its defaults are not live Norm credentials.
+For the local smoke harness only, explicitly set Authentication__Mode=TestProfiles in Test. The delivered Gateway default expects Norm to authenticate and forward the identity headers described in START-HERE.md. The local synthetic forwarded-header check validates the application contract, not a real Okta login.
 
-The normal Dockerfile builds .NET and serves the already compiled frontend. The dependency feed is local vendor/nuget, so NuGet does not need internet. Container base images still need the host's registry access.
-
-Phone verification, complete UAT and operational acceptance remain deferred per prior user instructions. No live Norm gateway or database access was available here.
+No exhaustive browser, device, accessibility, load or live Norm deployment test is claimed. Dashboard metrics remain illustrative. The bundled experience-live.cjs expects an isolated TestProfiles application at http://127.0.0.1:18088 and deliberately changes its test catalogue. Never run mutation smoke scripts on a live catalogue.

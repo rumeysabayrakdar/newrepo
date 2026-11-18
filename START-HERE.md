@@ -1,24 +1,19 @@
-# Upload this TEST package to Norm
+# What to do
 
-1. Open the existing TEST project in Norm and upload this complete ZIP.
-2. Select PostgreSQL infrastructure if Norm asks. Accept the connection replacement for src/AppStore.Web/appsettings.json. No database-name editing is needed: the app reads the name from the supplied connection.
-3. Keep container port 8080. Leave optional Setup SQL empty; the app creates its own tables. Approve the replacement and choose Confirm & Start.
-4. Open /healthz on the deployed website. A working app returns JSON with database connected and environment Test.
-5. Open the website. Zeynep is the Test Admin and Rümeysa is the Test employee. Save an edit and refresh to check persistence.
+## Review before another ZIP upload
 
-## Website address
+Use the interactive chat preview for layout feedback. It is a labelled browser-local demo, not the Norm database or Okta system. We can keep updating that preview and create another deployment ZIP when changes are ready.
 
-This package preserves the address in your uploaded file:
-https://arcelik-appstore-test-environment.norm.ar.arcelik
+## Deploy these application fixes
 
-If Norm uses a different public website address, set Hosting__TrustedPublicOrigin in the project's Env settings to that exact address. This protects saving through the gateway. Do not use a database address here.
+1. Upload the complete updated ZIP to the existing appstore-x Test project.
+2. Accept the PostgreSQL connection replacement for src/AppStore.Web/appsettings.json. Keep port 8080, optional Setup SQL empty, approve and deploy. Keep the existing database.
+3. In Norm Env, set Hosting__TrustedPublicOrigin to https://appstore-x.norm.ar.arcelik if an older value is saved there. Environment settings override JSON values; this is the exact cause of the screenshot's blocked favourite save.
+4. Norm's access protection is outside the app: disable the Okta gate on Test if you want no Okta prompt there. In-app Test always uses Zeynep/Admin and Rümeysa/Employee and ignores gateway identity.
+5. Open the app. Confirm categories appear immediately and a selected favourite has a filled star after saving and refreshing.
 
-## What is ready
+## Production later
 
-The ZIP includes the .NET API, built React interface and assets/fonts, pinned PostgreSQL driver package, database schema, seed data, migrations and Docker/Compose setup. Startup adds the required tables and seeds new stores once, retaining existing data. Temporary database-startup failures retry automatically. Test/Production selection is still exclusively AppStore:Environment in appsettings.json.
+Set AppStore:Environment to Production in the deployed base appsettings.json. This switches the code to gateway authentication and hides the Test badge/account switcher automatically. Use a separate Production PostgreSQL connection and public address. Configure Hosting__TrustedPublicOrigin to the real Production website, Authentication__TrustedProxyCidrs with the immediate Norm gateway networks, and Authentication__InitialAdminEmployeeIds with the first Admin's real X-User-Sicil. Norm must protect the Production route with Okta, remove/overwrite client identity headers, and prevent direct access to the backend. These live platform settings cannot be inferred from a ZIP or a screenshot.
 
-## What Norm supplies
-
-Norm must create/attach the running PostgreSQL service and provide its secret connection. This is the platform's infrastructure step; no source ZIP can provision a managed database without that permission. The ZIP includes no real password, live data or deployment token. The included Compose setup also creates PostgreSQL and generates its password on a Compose-capable host.
-
-This is a Test release. Production needs its own database, real auth-gate settings and verified first Admin. Do not change the working Test database to Production.
+Do not change the Test database into Production or share its secret. Explicit expected database names are optional; blank means use the database in the supplied secure connection. The environment marker still prevents mixing Test and Production data.

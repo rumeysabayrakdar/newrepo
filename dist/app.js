@@ -12,11 +12,13 @@ function App() {
     let dispose,
       stopped = false;
     const controller = new AbortController();
-    const test = runtime.environment === 'Test';
-    let testUser = test ? sessionStorage.getItem('arcelik-test-user') || runtime.testUsers?.find(p => p.id === 'zeynep')?.id || runtime.testUsers?.[0]?.id : '';
+    const test = runtime.environment === 'Test',
+      testLogin = test && runtime.authMode === 'TestProfiles';
+    const rememberedUser = testLogin ? sessionStorage.getItem('arcelik-test-user') : null;
+    let testUser = testLogin ? (runtime.testUsers || []).some(p => p.id === rememberedUser) ? rememberedUser : runtime.testUsers?.find(p => p.id === 'zeynep')?.id || runtime.testUsers?.[0]?.id : '';
     let persona = test ? sessionStorage.getItem('arcelik-test-persona') || '' : '';
     const headers = () => ({
-      ...(test ? {
+      ...(testLogin ? {
         'X-Test-User': testUser
       } : {}),
       ...(persona ? {
@@ -50,23 +52,48 @@ function App() {
           if (owns) writeBusy = false;
         }
       },
+      async upload(file, kind = 'packages') {
+        if (writeBusy) throw Error('A save is in progress.');
+        writeBusy = true;
+        try {
+          const form = new FormData();
+          form.append('file', file);
+          const response = await fetch('/api/experience/' + kind, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: headers(),
+            body: form,
+            signal: controller.signal
+          });
+          const value = await response.json();
+          if (!response.ok) throw Error(value.message || 'APK upload failed.');
+          return value;
+        } finally {
+          writeBusy = false;
+        }
+      },
+      filePath(url) {
+        if (!url?.startsWith('/api/experience/files/')) return url;
+        const q = new URLSearchParams();
+        if (testLogin) q.set('testUser', testUser);
+        if (test && persona) q.set('persona', persona);
+        return url + (q.size ? '?' + q : '');
+      },
       openPath(resource, kind = '', link = '') {
         const q = new URLSearchParams({
           resource,
           kind,
           link
         });
-        if (test) {
-          q.set('testUser', testUser);
-          if (persona) q.set('persona', persona);
-        }
+        if (testLogin) q.set('testUser', testUser);
+        if (test && persona) q.set('persona', persona);
         return '/api/experience/open?' + q;
       },
       switchProfile(id) {
         if (!test) return;
         const synthetic = bridge.bootstrap.data.testProfiles?.some(p => p.id === id);
         if (synthetic) sessionStorage.setItem('arcelik-test-persona', id);else {
-          sessionStorage.setItem('arcelik-test-user', id);
+          if (testLogin) sessionStorage.setItem('arcelik-test-user', id);
           sessionStorage.removeItem('arcelik-test-persona');
         }
         location.reload();

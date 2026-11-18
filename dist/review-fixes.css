@@ -1,0 +1,22 @@
+/* Shared light/dark layout corrections. */
+.topbar,.topbar .brand,.topbar .tools,.topbar .account{align-items:center;}
+.topbar .brand{display:inline-flex;justify-content:center;margin-block:0;gap:16px;}
+.topbar .brand-wordmark,.topbar .brand>img{transform:none!important;align-self:center;}
+.topbar .brand-title{display:inline-flex;align-items:center;align-self:center;min-height:28px;line-height:1.2;margin:0;}
+@media(min-width:681px){.category-disclosure{display:block!important;}.category-disclosure>summary{display:none!important;}.category-disclosure>.categorynav{display:block!important;visibility:visible;}.category-disclosure .categorytitle{display:flex!important;}}
+.social-actions button[aria-pressed=true] svg{fill:currentColor!important;}
+.social-actions button:disabled{cursor:wait;opacity:.65;}
+#web-directory-grid:has(.web-app-card){display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:stretch;}
+.web-app-card{position:relative;min-height:102px;border:1px solid var(--line);border-radius:20px;background:var(--surface);}
+.web-app-card .web-card-open{display:flex!important;align-items:center;gap:15px;padding:22px 50px 22px 22px;min-height:102px;text-decoration:none;color:var(--ink);width:100%;text-align:left;}
+.web-app-card .cover{flex:0 0 44px;width:44px;height:44px;margin:0;}
+.web-app-card .art-image{width:100%;height:100%;object-fit:contain;}
+.web-card-symbol{display:grid;place-items:center;background:var(--tool-color);color:white;width:44px;height:44px;border-radius:9px;font-weight:700;font-size:21px;}
+.web-app-card .identity{display:block;min-width:0;padding:0!important;}
+.web-app-card h3{font-size:16px;line-height:1.35;margin:0 0 6px;}
+.web-app-card .badges{display:flex;gap:6px;flex-wrap:wrap;}
+.web-app-card .label{font-size:10px;}
+.web-app-card>.social-actions{position:absolute;top:11px;right:10px;}
+.web-app-card>.quick{position:absolute;bottom:8px;right:12px;}
+@media(max-width:1050px){#web-directory-grid:has(.web-app-card){grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:600px){#web-directory-grid:has(.web-app-card){grid-template-columns:1fr;}}

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "node scripts/build.cjs",
-    "test": "node tests/experience-api.cjs && node tests/experience-live.cjs"
+    "test": "node tests/review-fixes.cjs"
   },
   "devDependencies": {
     "@babel/core": "7.26.0",

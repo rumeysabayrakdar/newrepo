@@ -1,23 +1,26 @@
 # Arçelik App Store — Implementation Ticket Index
-Version 3.0 · 16 November 2026 · Local proposed register, no external tickets created
+Version 3.4 · 18 November 2026
 
-| ID | Work | TEST candidate status | Remaining acceptance |
-|---|---|---|---|
-| UI-01 | Approved EN/TR responsive catalogue, themes, multi-filters, selected details | Implemented | User acceptance in Norm/mobile |
-| UI-02 | Compact featured cards, light-mode rings, burgundy animated perimeter/corners | Implemented | Visual acceptance |
-| UI-03 | Internal/external resources, topic expansion, portal photo cards | Implemented | Replace starter links/assets |
-| UI-04 | Admin ordering, desktop columns, internal card sizes | Implemented | User acceptance |
-| DATA-01 | PostgreSQL-backed experience, versioned save, migration preserving legacy rows | Implemented | Back up deployed DB before rollout |
-| DATA-02 | Per-employee favourites and likes | Implemented | Corporate profile acceptance |
-| DATA-03 | Shared app comments; web comments disabled | Implemented | UAT / retention policy |
-| ADMIN-01 | Existing Admin authority, registered-employee grants, audit | Retained/integrated | Corporate role bootstrap |
-| TEST-01 | Synthetic TEST profiles, explicit company/country/site, effective-role checks | Implemented in TEST | Real claim values are not looked up |
-| ID-01 | Trusted Okta gateway and real site/company/country mapping | Existing gate retained; mapping pending | Identity/platform owners confirm claims and trust ranges |
-| FB-01 | Help/idea/complaint receipt in DB and Admin Activity | Implemented | Notification destination/retention |
-| DASH-01 | Dashboard visual sample and actual link-readiness ring | Implemented visual sample | Live download/web metrics remain pending |
-| ENV-01 | TEST package, DB alias config, schema initialization, port 8080 | Implemented | Norm ingress/TLS and public-origin settings |
-| DOC-01 | General Design / Technical Implementation / Tickets | Updated v3 | User review |
-| CLEAN-01 | Consolidate accumulated CSS overrides without changing UI | Pending | Separate approved cleanup |
-| RELEASE-01 | Production package and release sign-off | Not included | TEST acceptance, real identity/configuration, operational checks |
+| Ticket | Scope | State |
+|---|---|---|
+| UI-32 | Approved review 32, compact cards/details/editor, light/dark, responsive layout | Implemented |
+| NAV-02 | Hero destinations, catalogue scroll, web return link, browser history, no repeated header tabs | Implemented |
+| MOBILE-02 | Hamburger-only header; profile/preferences inside; no mobile admin controls | Implemented |
+| VIEW-02 | Cards + two-app comparison; remove List and migrate stored preference | Implemented |
+| FAV-02 | Yellow outline/filled star, compact stack, side remove X, red profile avatar | Implemented |
+| EDIT-03 | Three editor groups, compact closed multi-selects, auto-growing 150-char description, remove redundant questions | Implemented |
+| FILE-01 | Multi-select images/documents, PostgreSQL bytes, authenticated upload/read and card cover selection | Implemented; 10 MB/file |
+| APK-01 | Browser APK upload/download and validation | Implemented; 100 MB |
+| FEEDBACK-02 | Send suggestion/complaint/application need; PostgreSQL admin inbox | Implemented; no external email/ticket delivery |
+| AUDIENCE-01 | Company/country/mail-group metadata and server-side filtering/download enforcement | Implemented; Norm claim mapping pending |
+| AUTH-02 | Remove trusted-gateway CIDR code/settings/startup gate as requested | Implemented |
+| AUTH-03 | Norm Okta authentication, forwarded headers and bypass prevention, real initial-admin sicil | Norm configuration / real-environment verification pending |
+| ENV-01 | One project; appsettings Test/Production; correct database selector/marker | Implemented; actual platform secrets/databases pending |
+| DATA-02 | Additive schema, preserve existing catalogue/comments/preferences | Implemented; deployment backup remains operational task |
+| METRIC-01 | Real usage/installation analytics | Not implemented; dashboard sample metrics labelled |
+| OPS-02 | Orphan upload retention/cleanup | Follow-up |
+| RELEASE-02 | Focused local Node/.NET/PostgreSQL/API checks | Passed; Norm deployment/Okta validation pending |
 
-Guardrails: no Node backend migration, no EF/TypeORM migration, no employee creation, no Super Admin, no approval workflow. A download/open request does not establish successful installation. Dashboard samples must not be presented as measured counts. Original auth, tables and source remain in the package. This register is an implementation record, not a claim that deployed Norm infrastructure or corporate integrations were changed.
+Release is a Test-selected single-project package. No direct Okta OAuth client or credentials are bundled. Norm forwards X-User-Sicil and GUID X-User-Id, plus optional email/name/company/country/groups/site. No CIDR allowlist is required by the application. Identity header overwrite and gateway-only reachability are platform responsibilities. Initial administrator comes from Authentication__InitialAdminEmployeeIds__0.
+
+Acceptance on Norm: configure the correct environment/database/origin; attach Okta with the documented header map; sign in as a real employee and the assigned administrator; save an application; test company/group targeting; upload a document/APK; send feedback and read it in the desktop admin inbox; verify mobile shows only employee tools. Production requires its separate database configuration and the same verified gateway contract.

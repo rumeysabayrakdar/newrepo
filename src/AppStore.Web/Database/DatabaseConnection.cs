@@ -9,19 +9,14 @@ public static class DatabaseConnection
     {
         try
         {
-            // Hosting-supplied settings take precedence over the discoverable JSON
-            // template. This supports Norm replacement as well as managed DB envs.
+            var mode=config["AppStore:Environment"]??"Test";
+            var prefix=mode=="Production"?"PROD":"TEST";
+            var scoped=First(config.GetConnectionString(mode),config[prefix+"_POSTGRES_CONNECTION_STRING"],config[prefix+"_DATABASE_URL"]);
             var external = First(Environment.GetEnvironmentVariable("ConnectionStrings__AppStore"),
-                Environment.GetEnvironmentVariable("POSTGRES_CONNECTION_STRING"),
-                Environment.GetEnvironmentVariable("DATABASE_URL"),
-                Environment.GetEnvironmentVariable("ConnectionStrings__Postgres"),
-                Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection"),
-                Environment.GetEnvironmentVariable("ConnectionStrings__Default"));
-            var structured = First(config["POSTGRES_HOST"]) is not null &&
-                First(config["POSTGRES_DB"]) is not null && First(config["POSTGRES_USER"]) is not null;
-            var raw = external ?? (structured ? null : First(config.GetConnectionString("AppStore"),
-                config.GetConnectionString("Postgres"), config["POSTGRES_CONNECTION_STRING"],
-                config.GetConnectionString("DefaultConnection"), config.GetConnectionString("Default"), config["DATABASE_URL"]));
+                config["POSTGRES_CONNECTION_STRING"],config["DATABASE_URL"],config.GetConnectionString("Postgres"),
+                config.GetConnectionString("DefaultConnection"),config.GetConnectionString("Default"));
+            var structured=First(config["POSTGRES_HOST"]) is not null&&First(config["POSTGRES_DB"]) is not null&&First(config["POSTGRES_USER"]) is not null;
+            var raw=First(scoped,external,structured?null:config.GetConnectionString("AppStore"));
             NpgsqlConnectionStringBuilder connection;
             if (raw is not null)
                 connection = raw.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) || raw.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase)
@@ -37,9 +32,7 @@ public static class DatabaseConnection
                 if (First(config["POSTGRES_PORT"]) is string port) connection.Port = int.Parse(port, System.Globalization.CultureInfo.InvariantCulture);
                 if (config["POSTGRES_PASSWORD"] is string password) connection.Password = password;
             }
-            if (string.IsNullOrEmpty(connection.Password) && config["POSTGRES_PASSWORD"] is string suppliedPassword)
-                connection.Password = suppliedPassword;
-            var expected = First(config["Database:Name"], connection.Database, config["POSTGRES_DB"]);
+            var expected = First(config["Database:"+mode+":Name"],scoped is null?config["Database:Name"]:null,connection.Database,scoped is null?config["POSTGRES_DB"]:null);
             if (expected is null || string.IsNullOrWhiteSpace(connection.Host) || string.IsNullOrWhiteSpace(connection.Username))
                 throw new InvalidOperationException("The PostgreSQL host, database and username must be configured.");
             if (connection.Database != expected)
